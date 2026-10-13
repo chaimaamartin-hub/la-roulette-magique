@@ -7,6 +7,21 @@ import pygame
 VoiceType = Literal["FEMALE", "MALE"]
 
 
+SCORE_ANIMAL_AUDIO_MAP: dict[int, str] = {
+    0: "score_0_ant.mp3",
+    1: "score_1_fly.mp3",
+    2: "score_2_frog.mp3",
+    3: "score_3_duck.mp3",
+    4: "score_4_bunny.mp3",
+    5: "score_5_cat.mp3",
+    6: "score_6_dog.mp3",
+    7: "score_7_fox.mp3",
+    8: "score_8_sheep.mp3",
+    9: "score_9_lion.mp3",
+    10: "score_10_bear.mp3",
+}
+
+
 def get_default_assets_dir() -> Path:
     if getattr(sys, "frozen", False):
         if hasattr(sys, "_MEIPASS"):
@@ -30,6 +45,7 @@ class AudioManager:
         self.sfx_dir: Path = base / "sfx"
         self.female_voice_dir: Path = base / "voice_female"
         self.male_voice_dir: Path = base / "voice_male"
+        self.animals_dir: Path = base / "animals"
 
         self.current_voice: VoiceType = "FEMALE"
 
@@ -110,6 +126,21 @@ class AudioManager:
 
     def is_voice_busy(self) -> bool:
         return self.channel_voice.get_busy()
+
+    def play_animal_sound(self, score: int) -> bool:
+        if not isinstance(score, int):
+            raise TypeError(f"CRITICAL: score must be an int, got {type(score).__name__}")
+        if score < 0 or score > 10:
+            raise ValueError(f"CRITICAL: score must be between 0 and 10, got {score}")
+
+        filename = SCORE_ANIMAL_AUDIO_MAP[score]
+        path = self.animals_dir / filename
+        if not path.is_file():
+            raise FileNotFoundError(f"CRITICAL: Animal sound file not found at {path}")
+
+        sound = pygame.mixer.Sound(str(path))
+        self.channel_voice.play(sound)
+        return True
 
     def stop_all(self) -> None:
         self.channel_sfx.stop()

@@ -67,3 +67,32 @@ def test_get_default_assets_dir_frozen(tmp_path: Path, monkeypatch: pytest.Monke
     resolved = get_default_assets_dir()
     assert resolved == assets_folder
 
+
+def test_play_animal_sound_happy_path() -> None:
+    am = AudioManager()
+    # Test all 11 scores (0 through 10) can be loaded and played
+    for score in range(11):
+        assert am.play_animal_sound(score) is True
+
+
+def test_play_animal_sound_failure_paths(tmp_path: Path) -> None:
+    am = AudioManager()
+
+    # Failure Path 1: Negative score
+    with pytest.raises(ValueError, match="CRITICAL: score must be between 0 and 10"):
+        am.play_animal_sound(-1)
+
+    # Failure Path 2: Score > 10
+    with pytest.raises(ValueError, match="CRITICAL: score must be between 0 and 10"):
+        am.play_animal_sound(11)
+
+    # Failure Path 3: Wrong type
+    with pytest.raises(TypeError, match="CRITICAL: score must be an int"):
+        am.play_animal_sound("5")  # type: ignore[arg-type]
+
+    # Failure Path 4: Missing animal audio file
+    empty_am = AudioManager(assets_dir=tmp_path / "empty_assets")
+    with pytest.raises(FileNotFoundError, match="CRITICAL: Animal sound file not found"):
+        empty_am.play_animal_sound(0)
+
+

@@ -2,6 +2,7 @@ from typing import Literal
 import pygame
 
 from src.animal_manager import AnimalManager
+from src.audio_manager import AudioManager
 from src.config import (
     ALL_LOWERCASE,
     ALL_NUMBERS,
@@ -163,6 +164,7 @@ class ScoreScreen:
         round_results: list[bool] | None = None,
         max_score: int = 10,
         animal_mgr: AnimalManager | None = None,
+        audio_mgr: AudioManager | None = None,
     ) -> None:
         self.w: int = screen_w
         self.h: int = screen_h
@@ -171,6 +173,9 @@ class ScoreScreen:
         self.round_results: list[bool] = round_results or []
         self.max_score: int = max_score
         self.animal_mgr: AnimalManager = animal_mgr if animal_mgr is not None else AnimalManager()
+        self.audio_mgr: AudioManager | None = audio_mgr
+        if self.audio_mgr is not None:
+            self.audio_mgr.play_animal_sound(self.score)
 
         play_sz = max(90, int(130 * self.scale))
         center_x = screen_w // 2

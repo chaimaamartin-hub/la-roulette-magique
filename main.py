@@ -115,6 +115,7 @@ def run_app(argv: list[str] | None = None) -> int:
                     win_h,
                     game_screen.session.score,
                     round_results=game_screen.session.round_results,
+                    audio_mgr=am,
                 )
                 current_state = "SCORE"
 
@@ -127,6 +128,7 @@ def run_app(argv: list[str] | None = None) -> int:
                     win_h,
                     game_screen.session.score,
                     round_results=game_screen.session.round_results,
+                    audio_mgr=am,
                 )
                 current_state = "SCORE"
 
