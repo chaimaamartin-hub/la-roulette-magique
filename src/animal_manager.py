@@ -3,15 +3,15 @@ import sys
 import pygame
 
 SCORE_ANIMAL_MAP: dict[int, str] = {
-    0: "score_0_fly.png",
-    1: "score_1_bunny.png",
+    0: "score_0_ant.png",
+    1: "score_1_fly.png",
     2: "score_2_frog.png",
     3: "score_3_duck.png",
-    4: "score_4_cat.png",
-    5: "score_5_dog.png",
-    6: "score_6_fox.png",
-    7: "score_7_sheep.png",
-    8: "score_8_horse.png",
+    4: "score_4_bunny.png",
+    5: "score_5_cat.png",
+    6: "score_6_dog.png",
+    7: "score_7_fox.png",
+    8: "score_8_sheep.png",
     9: "score_9_lion.png",
     10: "score_10_bear.png",
 }
