@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500" fill="none" stroke="#141419" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Frog: Score 2 -->
+  <!-- Eye mounds -->
+  <circle cx="195" cy="180" r="38" fill="#ffffff"/>
+  <circle cx="305" cy="180" r="38" fill="#ffffff"/>
+  <circle cx="195" cy="180" r="14" fill="#141419"/>
+  <circle cx="192" cy="176" r="4" fill="#ffffff"/>
+  <circle cx="305" cy="180" r="14" fill="#141419"/>
+  <circle cx="302" cy="176" r="4" fill="#ffffff"/>
+  <!-- Body / Head -->
+  <ellipse cx="250" cy="260" rx="105" ry="85" fill="#ffffff"/>
+  <!-- Smile -->
+  <path d="M 180 260 Q 250 315 320 260"/>
+  <circle cx="180" cy="256" r="4" fill="#141419"/>
+  <circle cx="320" cy="256" r="4" fill="#141419"/>
+  <!-- Nostrils -->
+  <circle cx="240" cy="235" r="3" fill="#141419"/>
+  <circle cx="260" cy="235" r="3" fill="#141419"/>
+  <!-- Sitting legs -->
+  <path d="M 155 310 C 110 320 100 410 170 420 C 200 420 215 390 205 340" fill="#ffffff"/>
+  <path d="M 345 310 C 390 320 400 410 330 420 C 300 420 285 390 295 340" fill="#ffffff"/>
+  <!-- Feet -->
+  <path d="M 160 420 Q 140 435 125 430"/>
+  <path d="M 175 422 Q 170 442 160 442"/>
+  <path d="M 340 420 Q 360 435 375 430"/>
+  <path d="M 325 422 Q 330 442 340 442"/>
+  <!-- Front hands -->
+  <path d="M 220 335 L 210 410 Q 195 425 210 425"/>
+  <path d="M 280 335 L 290 410 Q 305 425 290 425"/>
+</svg>

@@ -1,6 +1,7 @@
 from typing import Literal
 import pygame
 
+from src.animal_manager import AnimalManager
 from src.config import (
     ALL_LOWERCASE,
     ALL_NUMBERS,
@@ -23,38 +24,37 @@ class MainMenuScreen:
         center_x = screen_w // 2
         center_y = screen_h // 2
 
-        play_sz = max(110, int(180 * self.scale))
-        sub_sz = max(60, int(90 * self.scale))
-        sub_gap = max(30, int(60 * self.scale))
+        play_sz = max(90, int(130 * self.scale))
+        sub_sz = max(55, int(80 * self.scale))
 
+        # Three vertically aligned buttons
         self.btn_play = UIIconButton(
-            rect=pygame.Rect(center_x - play_sz // 2, center_y - play_sz // 2 - int(40 * self.scale), play_sz, play_sz),
+            rect=pygame.Rect(center_x - play_sz // 2, center_y - int(45 * self.scale), play_sz, play_sz),
             icon_type="PLAY",
             bg_color=(20, 20, 25),
             hover_color=(50, 50, 60),
             icon_color=(255, 255, 255),
-            border_radius=max(20, int(play_sz * 0.22)),
+            border_radius=max(18, int(play_sz * 0.22)),
         )
 
-        sub_y = center_y + int(90 * self.scale)
         self.btn_config = UIIconButton(
-            rect=pygame.Rect(center_x - sub_sz - sub_gap // 2, sub_y, sub_sz, sub_sz),
+            rect=pygame.Rect(center_x - sub_sz // 2, center_y + int(110 * self.scale), sub_sz, sub_sz),
             icon_type="GEAR",
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=max(14, int(sub_sz * 0.22)),
+            border_radius=max(12, int(sub_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=3,
         )
 
         self.btn_quit = UIIconButton(
-            rect=pygame.Rect(center_x + sub_gap // 2, sub_y, sub_sz, sub_sz),
+            rect=pygame.Rect(center_x - sub_sz // 2, center_y + int(210 * self.scale), sub_sz, sub_sz),
             icon_type="EXIT",
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=max(14, int(sub_sz * 0.22)),
+            border_radius=max(12, int(sub_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=3,
         )
@@ -72,6 +72,13 @@ class MainMenuScreen:
 
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
+
+        # Title: Les Cartes Magiques
+        title_font = fm.get_font("Segoe UI", max(36, int(64 * self.scale)), bold=True)
+        title_surf = title_font.render("Les Cartes Magiques", True, (20, 20, 25))
+        title_rect = title_surf.get_rect(center=(self.w // 2, self.h // 2 - int(150 * self.scale)))
+        surface.blit(title_surf, title_rect)
+
         self.btn_play.render(surface, mouse_pos)
         self.btn_config.render(surface, mouse_pos)
         self.btn_quit.render(surface, mouse_pos)
@@ -155,21 +162,23 @@ class ScoreScreen:
         score: int,
         round_results: list[bool] | None = None,
         max_score: int = 10,
+        animal_mgr: AnimalManager | None = None,
     ) -> None:
         self.w: int = screen_w
         self.h: int = screen_h
         self.scale: float = min(screen_w / 1920.0, screen_h / 1080.0)
-        self.score: int = score
+        self.score: int = min(max(0, score), max_score)
         self.round_results: list[bool] = round_results or []
         self.max_score: int = max_score
+        self.animal_mgr: AnimalManager = animal_mgr if animal_mgr is not None else AnimalManager()
 
-        play_sz = max(90, int(150 * self.scale))
-        btn_sz = max(50, int(80 * self.scale))
+        play_sz = max(90, int(130 * self.scale))
         center_x = screen_w // 2
         center_y = screen_h // 2
 
+        # Single play button below animal illustration
         self.btn_replay = UIIconButton(
-            rect=pygame.Rect(center_x - play_sz // 2, center_y + int(110 * self.scale), play_sz, play_sz),
+            rect=pygame.Rect(center_x - play_sz // 2, center_y + int(140 * self.scale), play_sz, play_sz),
             icon_type="PLAY",
             bg_color=(20, 20, 25),
             hover_color=(50, 50, 60),
@@ -177,47 +186,38 @@ class ScoreScreen:
             border_radius=max(18, int(play_sz * 0.22)),
         )
 
-        self.btn_home = UIIconButton(
-            rect=pygame.Rect(center_x - play_sz // 2 - btn_sz - int(30 * self.scale), center_y + int(145 * self.scale), btn_sz, btn_sz),
-            icon_type="ARROW_LEFT",
-            bg_color=(255, 255, 255),
-            hover_color=(240, 240, 245),
-            icon_color=(20, 20, 25),
-            border_radius=max(12, int(btn_sz * 0.22)),
-            border_color=(20, 20, 25),
-            border_width=3,
-        )
-
     def handle_event(self, event: pygame.event.Event) -> ScreenAction | None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            pos = event.pos
-            if self.btn_replay.is_clicked(pos):
+            if self.btn_replay.is_clicked(event.pos):
                 return "PLAY"
-            if self.btn_home.is_clicked(pos):
-                return "MENU"
         return None
 
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
+        center_x = self.w // 2
+        center_y = self.h // 2
 
         # 10 progress circles on top
         circ_rad = max(10, int(18 * self.scale))
         circ_spacing = max(26, int(52 * self.scale))
-        circ_y = self.h // 2 - int(170 * self.scale)
+        circ_y = center_y - int(190 * self.scale)
         draw_progress_circles(
             surface=surface,
-            center_pos=(self.w // 2, circ_y),
+            center_pos=(center_x, circ_y),
             round_results=self.round_results,
             total_rounds=self.max_score,
             radius=circ_rad,
             spacing=circ_spacing,
         )
 
-        # Bold score number
-        score_font = fm.get_font("Segoe UI", max(48, int(120 * self.scale)), bold=True)
-        score_surf = score_font.render(f"{self.score}", True, (20, 20, 25))
-        score_rect = score_surf.get_rect(center=(self.w // 2, self.h // 2 - int(25 * self.scale)))
-        surface.blit(score_surf, score_rect)
+        # Animal illustration representing the score
+        animal_sz = max(160, int(260 * self.scale))
+        self.animal_mgr.render_animal(
+            surface=surface,
+            score=self.score,
+            center_pos=(center_x, center_y - int(25 * self.scale)),
+            size=animal_sz,
+        )
 
         self.btn_replay.render(surface, mouse_pos)
-        self.btn_home.render(surface, mouse_pos)
+

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500" fill="none" stroke="#141419" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Cat: Score 4 -->
+  <!-- Body -->
+  <ellipse cx="250" cy="360" rx="90" ry="85" fill="#ffffff"/>
+  <!-- Tail -->
+  <path d="M 330 380 C 400 370 420 260 370 240 C 355 235 345 255 360 265 C 385 285 375 350 320 365"/>
+  <!-- Head -->
+  <circle cx="250" cy="220" r="75" fill="#ffffff"/>
+  <!-- Ears -->
+  <polygon points="190,175 160,85 220,150" fill="#ffffff"/>
+  <polygon points="310,175 340,85 280,150" fill="#ffffff"/>
+  <!-- Eyes -->
+  <ellipse cx="220" cy="205" rx="10" ry="14" fill="#141419"/>
+  <circle cx="218" cy="200" r="3" fill="#ffffff"/>
+  <ellipse cx="280" cy="205" rx="10" ry="14" fill="#141419"/>
+  <circle cx="278" cy="200" r="3" fill="#ffffff"/>
+  <!-- Nose and mouth -->
+  <polygon points="245,225 255,225 250,233" fill="#141419"/>
+  <path d="M 250 233 Q 240 248 230 240"/>
+  <path d="M 250 233 Q 260 248 270 240"/>
+  <!-- Whiskers -->
+  <path d="M 210 230 L 140 220"/>
+  <path d="M 210 240 L 135 245"/>
+  <path d="M 290 230 L 360 220"/>
+  <path d="M 290 240 L 365 245"/>
+  <!-- Paws -->
+  <ellipse cx="215" cy="435" rx="25" ry="15" fill="#ffffff"/>
+  <ellipse cx="285" cy="435" rx="25" ry="15" fill="#ffffff"/>
+</svg>
