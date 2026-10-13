@@ -127,12 +127,12 @@ def synthesize_and_trim(
     temp_wav.write_bytes(wav_bytes)
 
     ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
-    # Trim silence and gracefully cap at max_duration with gentle fade
-    fade_start = max(1.0, max_duration - 0.25)
+    # Trim leading silence, and trailing silence via reverse-trim without cutting pauses between words
     filter_arg = (
-        f"silenceremove=start_periods=1:start_duration=0.04:start_threshold=-45dB:"
-        f"stop_periods=1:stop_duration=0.2:stop_threshold=-45dB,"
-        f"atrim=0:{max_duration},afade=t=out:st={fade_start}:d=0.25"
+        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
+        "areverse,"
+        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
+        "areverse"
     )
     cmd = [
         ffmpeg_bin,
