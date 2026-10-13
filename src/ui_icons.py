@@ -1,3 +1,5 @@
+from pathlib import Path
+import sys
 import pygame
 
 _font_cache: dict[int, pygame.font.Font] = {}
@@ -43,13 +45,48 @@ def draw_play_icon(
     render_unicode_symbol(surface, center, "▶", size, color)
 
 
+_gear_cache: dict[tuple[int, tuple[int, int, int]], pygame.Surface] = {}
+
+
+def get_gear_svg_path() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent
+    return base / "assets" / "images" / "icons" / "gear.svg"
+
+
+def get_gear_surface(size: int, color: tuple[int, int, int]) -> pygame.Surface:
+    if size <= 0:
+        raise ValueError(f"CRITICAL: Gear size must be positive, got {size}")
+
+    key = (size, color)
+    if key in _gear_cache:
+        return _gear_cache[key]
+
+    svg_path = get_gear_svg_path()
+    if not svg_path.is_file():
+        raise FileNotFoundError(f"CRITICAL: Gear SVG not found at {svg_path}")
+
+    loaded = pygame.image.load(str(svg_path))
+    scaled = pygame.transform.smoothscale(loaded, (size, size))
+    if color != (255, 255, 255):
+        scaled.fill(color, special_flags=pygame.BLEND_RGBA_MULT)
+
+    _gear_cache[key] = scaled
+    return scaled
+
+
 def draw_gear_icon(
     surface: pygame.Surface,
     center: tuple[int, int],
     radius: int,
     color: tuple[int, int, int],
 ) -> None:
-    render_unicode_symbol(surface, center, "⛭", int(radius * 1.8), color)
+    size = max(16, int(radius * 1.8))
+    gear_surf = get_gear_surface(size, color)
+    rect = gear_surf.get_rect(center=center)
+    surface.blit(gear_surf, rect)
 
 
 def draw_close_circle_icon(

@@ -98,10 +98,16 @@ class Card:
         surface: pygame.Surface,
         font: pygame.font.Font,
         cap_offset: float | None = None,
+        mouse_pos: tuple[int, int] | None = None,
     ) -> None:
         rect = self.get_current_rect()
-        bg_color = (255, 255, 255)
-        border_color = (200, 200, 210)
+        is_hovered = mouse_pos is not None and rect.collidepoint(mouse_pos)
+        if is_hovered and self.state in ("IDLE", "FLYING_IN"):
+            bg_color = (255, 252, 220)  # Very light yellow hover
+            border_color = (220, 210, 160)
+        else:
+            bg_color = (255, 255, 255)
+            border_color = (200, 200, 210)
         border_width = 4
         text_color = (34, 34, 34)
 

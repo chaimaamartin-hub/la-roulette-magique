@@ -82,3 +82,25 @@ def test_ui_icons_validation_failure_paths() -> None:
         render_unicode_symbol(surf, (50, 50), "", 24, (0, 0, 0))
 
 
+def test_get_gear_surface() -> None:
+    from unittest.mock import patch
+    from src.ui_icons import get_gear_surface
+
+    # Happy path: Returns valid surface with specified dimensions
+    gear = get_gear_surface(32, (100, 100, 100))
+    assert isinstance(gear, pygame.Surface)
+    assert gear.get_size() == (32, 32)
+
+    # Failure path 1: Non-positive size raises ValueError
+    with pytest.raises(ValueError, match="CRITICAL: Gear size must be positive"):
+        get_gear_surface(0, (255, 255, 255))
+    with pytest.raises(ValueError, match="CRITICAL: Gear size must be positive"):
+        get_gear_surface(-16, (255, 255, 255))
+
+    # Failure path 2: Missing SVG file raises FileNotFoundError
+    with patch("src.ui_icons.get_gear_svg_path", return_value=Path("non_existent_gear.svg")):
+        with pytest.raises(FileNotFoundError, match="CRITICAL: Gear SVG not found"):
+            get_gear_surface(999, (0, 0, 0))
+
+
+

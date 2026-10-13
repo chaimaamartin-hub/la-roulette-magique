@@ -158,4 +158,4 @@ class GameScreen:
         cap_offset = fm.get_cap_center_offset(round_font)
 
         for card in self.cards:
-            card.render(surface, round_font, cap_offset=cap_offset)
+            card.render(surface, round_font, cap_offset=cap_offset, mouse_pos=mouse_pos)

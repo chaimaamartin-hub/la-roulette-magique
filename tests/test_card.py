@@ -65,3 +65,22 @@ def test_card_triggers_and_effects() -> None:
     assert card.state == "RED_FLASH"
     card.update(card.red_flash_duration + 0.1)
     assert card.state == "IDLE"
+
+
+def test_card_hover_render() -> None:
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="C", index=0, target_rect=target_rect, screen_width=800)
+    card.update(1.0)  # Move to IDLE
+    assert card.state == "IDLE"
+
+    font = pygame.font.SysFont("arial", 32)
+    surf = pygame.Surface((800, 600))
+
+    # Render without hover -> white background
+    card.render(surf, font, mouse_pos=(10, 10))
+    # Render with hover -> very light yellow background (255, 252, 220)
+    card.render(surf, font, mouse_pos=(150, 150))
+    # Pixel inside card should be light yellow
+    pixel = surf.get_at((150, 150))
+    assert (pixel.r, pixel.g, pixel.b) == (255, 252, 220)
+
