@@ -58,3 +58,19 @@ def test_draw_progress_circles() -> None:
     draw_close_circle_icon(surf, (150, 50), 20, (0, 0, 0))
     draw_arrow_left_icon(surf, (200, 50), 30, (0, 0, 0))
 
+
+def test_ui_icons_validation_failure_paths() -> None:
+    from src.ui_icons import get_symbol_font, render_unicode_symbol
+
+    # Failure Path 1: Invalid font size <= 0
+    with pytest.raises(ValueError, match="CRITICAL: Font size must be greater than 0"):
+        get_symbol_font(0)
+    with pytest.raises(ValueError, match="CRITICAL: Font size must be greater than 0"):
+        get_symbol_font(-10)
+
+    # Failure Path 2: Empty symbol string
+    surf = pygame.Surface((100, 100))
+    with pytest.raises(ValueError, match="CRITICAL: Symbol must not be empty"):
+        render_unicode_symbol(surf, (50, 50), "", 24, (0, 0, 0))
+
+

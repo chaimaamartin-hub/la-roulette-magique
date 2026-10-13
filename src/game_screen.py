@@ -36,7 +36,7 @@ class GameScreen:
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=btn_sz // 2,
+            border_radius=max(12, int(btn_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=2,
         )

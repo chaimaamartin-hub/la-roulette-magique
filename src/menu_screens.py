@@ -33,7 +33,7 @@ class MainMenuScreen:
             bg_color=(20, 20, 25),
             hover_color=(50, 50, 60),
             icon_color=(255, 255, 255),
-            border_radius=play_sz // 2,
+            border_radius=max(20, int(play_sz * 0.22)),
         )
 
         sub_y = center_y + int(90 * self.scale)
@@ -43,7 +43,7 @@ class MainMenuScreen:
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=sub_sz // 2,
+            border_radius=max(14, int(sub_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=3,
         )
@@ -54,7 +54,7 @@ class MainMenuScreen:
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=sub_sz // 2,
+            border_radius=max(14, int(sub_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=3,
         )
@@ -93,7 +93,7 @@ class ConfigScreen:
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=btn_sz // 2,
+            border_radius=max(12, int(btn_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=2,
         )
@@ -174,7 +174,7 @@ class ScoreScreen:
             bg_color=(20, 20, 25),
             hover_color=(50, 50, 60),
             icon_color=(255, 255, 255),
-            border_radius=play_sz // 2,
+            border_radius=max(18, int(play_sz * 0.22)),
         )
 
         self.btn_home = UIIconButton(
@@ -183,7 +183,7 @@ class ScoreScreen:
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
             icon_color=(20, 20, 25),
-            border_radius=btn_sz // 2,
+            border_radius=max(12, int(btn_sz * 0.22)),
             border_color=(20, 20, 25),
             border_width=3,
         )
