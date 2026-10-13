@@ -81,8 +81,8 @@ ANIMAL_AUDIO_MANIFEST = [
         "score": 9,
         "name": "lion",
         "voice": "Puck",
-        "text": "Rroarrr ! Très bien !",
-        "style": "Playful preschool teacher imitating cute friendly lion cub roar then proud celebratory praise: Rroarrr ! Très bien !",
+        "text": "Wrrroaaarrr ! Très bien !",
+        "style": "Deep ferocious but child-friendly lion roar and loud rumble: Wrrroaaarrr! followed by celebratory praise: Très bien !",
     },
     {
         "score": 10,
