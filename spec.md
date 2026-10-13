@@ -13,7 +13,8 @@
   * Account / Project: `martin.luka.ringring@gmail.com` / `project-16e6ffba-6527-45d1-a6c`.
   * Encoded to MP3 at 192 kbps (44.1 kHz).
   * Pre-generates all audio offline to eliminate runtime API latency and network dependency.
-* **Portability & Distribution:** Standard Python runtime with `pygame-ce` or can be bundled into a zero-dependency standalone `.exe` using PyInstaller.
+* **Portability & Distribution:** Bundled into a zero-dependency standalone Windows executable: `les_cartes_magiques.exe` in `dist/les_cartes_magiques/`.
+* **Application Icon:** Custom multi-resolution icon (`assets/images/icons/app_icon.ico` and `.png`) featuring three overlapping cards rotated relative to one another (left tilted card 'A', right tilted card '1', and center card with golden magic star '★').
 
 ---
 

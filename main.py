@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 import os
+from pathlib import Path
 import sys
 from typing import Literal
 import pygame
@@ -38,11 +39,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def get_app_icon_path() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent
+    return base / "assets" / "images" / "icons" / "app_icon.png"
+
+
 def run_app(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     pygame.init()
     pygame.font.init()
+
+    # Set application icon if available
+    icon_path = get_app_icon_path()
+    if icon_path.is_file():
+        try:
+            icon_surf = pygame.image.load(str(icon_path))
+            pygame.display.set_icon(icon_surf)
+        except Exception:
+            pass
 
     if not args.windowed:
         info = pygame.display.Info()
@@ -53,7 +71,7 @@ def run_app(argv: list[str] | None = None) -> int:
         win_w, win_h = args.width, args.height
         screen = pygame.display.set_mode((win_w, win_h))
 
-    pygame.display.set_caption("La Roulette Magique")
+    pygame.display.set_caption("Les Cartes Magiques")
 
     clock = pygame.time.Clock()
     fm = FontManager()
