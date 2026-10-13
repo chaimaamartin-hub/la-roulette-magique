@@ -5,6 +5,7 @@ from src.animal_manager import AnimalManager, get_score_subtitle
 from src.audio_manager import AudioManager
 from src.font_manager import FontManager
 from src.ui_elements import UIIconButton, draw_progress_stars
+from src.video_player import AnimalVideoPlayer
 
 ScreenAction = Literal["MENU", "PLAY", "CONFIG", "SCORE", "QUIT"]
 
@@ -48,6 +49,19 @@ class ScoreScreen:
         self.animal_sz: int = max(320, int(520 * self.scale))
         self.animal_pos: tuple[int, int] = (center_x, center_y - int(10 * self.scale))
 
+        # Check for animal video (plays with volume 0, seamlessly looping)
+        self.video_player: AnimalVideoPlayer | None = None
+        if self.animal_mgr.has_video(self.score):
+            video_path = self.animal_mgr.get_video_path(self.score)
+            if video_path is not None:
+                try:
+                    self.video_player = AnimalVideoPlayer(
+                        video_path=video_path,
+                        target_height=self.animal_sz,
+                    )
+                except Exception:
+                    self.video_player = None
+
         # Target stars position
         self.circ_rad: int = max(10, int(18 * self.scale))
         self.circ_spacing: int = max(26, int(52 * self.scale))
@@ -68,6 +82,8 @@ class ScoreScreen:
 
     def update(self, dt: float) -> None:
         self.anim_time += dt
+        if self.video_player is not None:
+            self.video_player.update(dt)
 
     def handle_event(self, event: pygame.event.Event) -> ScreenAction | None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -102,13 +118,17 @@ class ScoreScreen:
             star_y_offsets=star_offsets,
         )
 
-        # 2. Animal illustration (2x size, fades in over <= 0.45s)
+        # 2. Animal illustration or video (2x size, fades in over <= 0.45s)
         fade_t = min(1.0, max(0.0, self.anim_time / self.fade_duration))
         alpha = int(255 * fade_t)
 
-        animal_surf = self.animal_mgr.get_animal_surface(self.score, self.animal_sz)
-        draw_x = self.animal_pos[0] - self.animal_sz // 2
-        draw_y = self.animal_pos[1] - self.animal_sz // 2
+        if self.video_player is not None:
+            animal_surf = self.video_player.get_current_frame()
+        else:
+            animal_surf = self.animal_mgr.get_animal_surface(self.score, self.animal_sz)
+
+        draw_x = self.animal_pos[0] - animal_surf.get_width() // 2
+        draw_y = self.animal_pos[1] - animal_surf.get_height() // 2
 
         if alpha < 255:
             temp_surf = animal_surf.copy()
@@ -146,4 +166,12 @@ class ScoreScreen:
             surface.blit(msg_temp, msg_rect)
         else:
             surface.blit(msg_surf, msg_rect)
+
+    def close(self) -> None:
+        if getattr(self, "video_player", None) is not None:
+            self.video_player.close()
+            self.video_player = None
+
+    def __del__(self) -> None:
+        self.close()
 

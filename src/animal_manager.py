@@ -100,13 +100,50 @@ def get_animals_dir() -> Path:
     return base / "assets" / "images" / "animals"
 
 
+def get_animals_videos_dir() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent
+    return base / "assets" / "videos" / "animals"
+
+
 class AnimalManager:
-    def __init__(self, animals_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        animals_dir: Path | None = None,
+        videos_dir: Path | None = None,
+    ) -> None:
         self.animals_dir: Path = animals_dir if animals_dir is not None else get_animals_dir()
         if not self.animals_dir.is_dir():
             raise FileNotFoundError(f"CRITICAL: Animals directory not found at {self.animals_dir}")
+        self.videos_dir: Path = videos_dir if videos_dir is not None else get_animals_videos_dir()
         self._raw_cache: dict[int, pygame.Surface] = {}
         self._scaled_cache: dict[tuple[int, int], pygame.Surface] = {}
+
+    def get_video_path(self, score: int) -> Path | None:
+        if not isinstance(score, int):
+            raise TypeError(f"CRITICAL: score must be an int, got {type(score).__name__}")
+        if score < 0 or score > 10:
+            raise ValueError(f"CRITICAL: score must be between 0 and 10, got {score}")
+        if not self.videos_dir.is_dir():
+            return None
+
+        img_name = SCORE_ANIMAL_MAP[score]
+        stem = Path(img_name).stem
+        for ext in (".mp4", ".mov", ".mkv", ".webm"):
+            cand = self.videos_dir / f"{stem}{ext}"
+            if cand.is_file():
+                return cand
+
+        for p in self.videos_dir.glob(f"score_{score}_*"):
+            if p.suffix.lower() in (".mp4", ".mov", ".mkv", ".webm"):
+                return p
+
+        return None
+
+    def has_video(self, score: int) -> bool:
+        return self.get_video_path(score) is not None
 
     def get_animal_surface(self, score: int, target_size: int) -> pygame.Surface:
         if not isinstance(score, int):

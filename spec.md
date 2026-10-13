@@ -229,7 +229,7 @@ python scripts/generate_all_audio.py
   * `assets/audio/voice_male/`
   * `assets/audio/sfx/`
 
-### 7.3 Generating Single or Custom Audio Files
+### 7.3 Generating Single or Custom Audio Files (Python API)
 To generate arbitrary new audio files programmatically, import and invoke `synthesize_speech` from `src/tts_generator.py`:
 
 ```python
@@ -252,9 +252,82 @@ saved_path = synthesize_speech(request)
 print(f"Generated: {saved_path}")
 ```
 
-### 7.4 Voice Persona Reference
+### 7.4 Generating Mascot Animal Reward Audio
+To regenerate the curated mascot audio clips (`assets/audio/animals/score_0_ant.mp3` through `score_10_bear.mp3`):
+```bash
+python scripts/generate_short_animal_sounds.py
+```
+
+### 7.5 Direct Flash 3.8 TTS REST API Specification
+Under the hood, `src/tts_generator.py` communicates directly with Google Cloud Vertex AI:
+
+* **Endpoint:**
+  ```http
+  POST https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-3.8-flash-tts:generateContent
+  ```
+* **Headers:**
+  ```http
+  Authorization: Bearer <GCP_OAUTH_ACCESS_TOKEN>
+  Content-Type: application/json
+  ```
+* **JSON Request Body:**
+  ```json
+  {
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Où est la lettre A ?",
+            "speechMetadata": {
+              "style": "Voix en français. Voix féminine d'institutrice, chaleureuse et invitante."
+            }
+          }
+        ]
+      }
+    ],
+    "generationConfig": {
+      "responseModalities": ["AUDIO"],
+      "speechConfig": {
+        "voiceConfig": {
+          "prebuiltVoiceConfig": {
+            "voiceName": "Aoede"
+          }
+        }
+      }
+    }
+  }
+  ```
+* **Response Processing:**
+  The API returns a JSON payload with Base64-encoded raw audio:
+  ```json
+  {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "inlineData": {
+                "mimeType": "audio/x-wav",
+                "data": "<BASE64_ENCODED_WAV_BYTES>"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+  ```
+* **Encoding to MP3 via FFmpeg:**
+  Base64 bytes are decoded to a temporary `.wav` file, then converted to 192 kbps MP3:
+  ```bash
+  ffmpeg -y -i temp.wav -ar 44100 -b:a 192k output.mp3
+  ```
+
+### 7.6 Voice Persona Reference
 | Role | Voice Name | Gender | Protobuf `prebuiltVoiceConfig` | Style Tone |
 | :--- | :--- | :--- | :--- | :--- |
 | **Female Voice** | `Aoede` | `FEMALE` | `{"voiceName": "Aoede"}` | Institutrice, douce, bienveillante, invitante |
 | **Male Voice** | `Puck` | `MALE` | `{"voiceName": "Puck"}` | Instituteur, doux, bienveillant, enthousiaste |
+
 

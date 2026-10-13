@@ -74,10 +74,10 @@ class MainMenuScreen:
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
 
-        # Title: LES CARTES MAGIQUES
-        title_font = fm.get_title_font(max(36, int(64 * self.scale)))
+        # Title: LES CARTES MAGIQUES (enlarged by 20%)
+        title_font = fm.get_title_font(max(44, int(77 * self.scale)))
         title_surf = title_font.render("LES CARTES MAGIQUES", True, (20, 20, 25))
-        title_rect = title_surf.get_rect(center=(self.w // 2, self.h // 2 - int(150 * self.scale)))
+        title_rect = title_surf.get_rect(center=(self.w // 2, self.h // 2 - int(160 * self.scale)))
         surface.blit(title_surf, title_rect)
 
         self.btn_play.render(surface, mouse_pos)
@@ -106,6 +106,24 @@ class ConfigScreen:
             border_width=2,
         )
 
+        mode_w = max(170, int(240 * self.scale))
+        mode_h = max(34, int(46 * self.scale))
+        mode_spacing = max(16, int(24 * self.scale))
+        total_mode_w = mode_w * 2 + mode_spacing
+        start_mode_x = (self.w - total_mode_w) // 2
+        mode_y = self.h // 2 + int(140 * self.scale)
+
+        self.btn_mode_names = UICheckbox(
+            rect=pygame.Rect(start_mode_x, mode_y, mode_w, mode_h),
+            label="Nom des lettres",
+            checked=self.config.ask_letter_names,
+        )
+        self.btn_mode_sounds = UICheckbox(
+            rect=pygame.Rect(start_mode_x + mode_w + mode_spacing, mode_y, mode_w, mode_h),
+            label="Son des lettres",
+            checked=self.config.ask_letter_sounds,
+        )
+
     def _build_grid(self) -> None:
         self.checkboxes.clear()
         selected_set = set(self.config.selected_symbols)
@@ -131,6 +149,22 @@ class ConfigScreen:
             if self.btn_back.is_clicked(pos):
                 return "MENU"
 
+            if self.btn_mode_names.is_clicked(pos):
+                if self.btn_mode_names.checked and not self.btn_mode_sounds.checked:
+                    return None
+                self.btn_mode_names.toggle()
+                self.config.ask_letter_names = self.btn_mode_names.checked
+                save_config(self.config)
+                return None
+
+            if self.btn_mode_sounds.is_clicked(pos):
+                if self.btn_mode_sounds.checked and not self.btn_mode_names.checked:
+                    return None
+                self.btn_mode_sounds.toggle()
+                self.config.ask_letter_sounds = self.btn_mode_sounds.checked
+                save_config(self.config)
+                return None
+
             for box in self.checkboxes:
                 if box.is_clicked(pos):
                     # Enforce minimum active symbols
@@ -153,6 +187,10 @@ class ConfigScreen:
         box_font = fm.get_font("Segoe UI", max(14, int(22 * self.scale)), bold=True)
         for box in self.checkboxes:
             box.render(surface, box_font, mouse_pos)
+
+        mode_font = fm.get_font("Segoe UI", max(13, int(20 * self.scale)), bold=True)
+        self.btn_mode_names.render(surface, mode_font, mouse_pos)
+        self.btn_mode_sounds.render(surface, mode_font, mouse_pos)
 
 
 from src.score_screen import ScoreScreen

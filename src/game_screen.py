@@ -89,17 +89,19 @@ class GameScreen:
         return None
 
     def _handle_card_click(self, card: Card) -> None:
+        if card.is_wrong:
+            return
         is_correct = self.session.process_guess(card.symbol)
         if is_correct:
             self.am.play_sfx_correct()
             card.trigger_rainbow()
-            self.am.play_voice(card.symbol, "ans_pos")
+            self.am.play_voice(card.symbol, "ans_pos", prompt_mode=self.session.current_round.prompt_mode)
             self.phase = "SOLVED_FEEDBACK"
             self.phase_time = 0.0
         else:
             self.am.play_sfx_wrong()
             card.trigger_red_flash()
-            self.am.play_voice(card.symbol, "ans_neg")
+            self.am.play_voice(card.symbol, "ans_neg", prompt_mode=self.session.current_round.prompt_mode)
 
     def update(self, dt: float) -> Literal["SCORE"] | None:
         self.phase_time += dt
@@ -109,7 +111,11 @@ class GameScreen:
 
         if self.phase == "FLYING_IN":
             if not self.has_played_question and self.phase_time >= 0.2:
-                self.am.play_voice(self.session.current_round.target_symbol, "question")
+                self.am.play_voice(
+                    self.session.current_round.target_symbol,
+                    "question",
+                    prompt_mode=self.session.current_round.prompt_mode,
+                )
                 self.has_played_question = True
 
             all_idle = all(c.state == "IDLE" for c in self.cards)

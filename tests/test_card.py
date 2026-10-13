@@ -63,8 +63,10 @@ def test_card_triggers_and_effects() -> None:
 
     card.trigger_red_flash()
     assert card.state == "RED_FLASH"
+    assert card.is_wrong is True
     card.update(card.red_flash_duration + 0.1)
     assert card.state == "IDLE"
+    assert card.is_wrong is True
 
 
 def test_card_hover_render() -> None:
@@ -83,4 +85,54 @@ def test_card_hover_render() -> None:
     # Pixel inside card should be light yellow
     pixel = surf.get_at((150, 150))
     assert (pixel.r, pixel.g, pixel.b) == (255, 252, 220)
+
+
+def test_card_wrong_grayed_out_happy_path() -> None:
+    # 1 Happy Path: wrong card flashes then settles into grayed-out state and ignores hover
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="D", index=0, target_rect=target_rect, screen_width=800)
+    card.update(1.0)  # Move to IDLE
+    assert not card.is_wrong
+
+    card.trigger_red_flash()
+    assert card.is_wrong
+    card.update(card.red_flash_duration + 0.1)
+
+    # State returns to IDLE but is_wrong remains True
+    assert card.state == "IDLE"
+    assert card.is_wrong
+
+    font = pygame.font.SysFont("arial", 32)
+    surf = pygame.Surface((800, 600))
+
+    # Render while hovering over wrong card: should remain gray (235, 235, 238), NOT yellow
+    card.render(surf, font, mouse_pos=(150, 150))
+    pixel = surf.get_at((150, 150))
+    assert (pixel.r, pixel.g, pixel.b) == (235, 235, 238)
+
+
+def test_card_wrong_click_disabled_failure_path() -> None:
+    # 2 Failure Path A: clicks on a wrong card are rejected
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="E", index=0, target_rect=target_rect, screen_width=800)
+    card.update(1.0)
+    assert card.is_clicked((150, 150))
+
+    card.trigger_red_flash()
+    # While flashing or once marked wrong, clicks inside are rejected
+    assert not card.is_clicked((150, 150))
+
+    card.update(card.red_flash_duration + 0.1)
+    # After flash completes, clicks inside remain rejected
+    assert not card.is_clicked((150, 150))
+
+
+def test_card_wrong_click_out_of_bounds_failure_path() -> None:
+    # 2 Failure Path B: clicks outside wrong card are rejected
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="F", index=0, target_rect=target_rect, screen_width=800)
+    card.trigger_red_flash()
+    assert not card.is_clicked((0, 0))
+    assert not card.is_clicked((-50, -50))
+
 

@@ -17,8 +17,14 @@ class GameConfig:
     selected_symbols: list[str] = field(
         default_factory=lambda: list(DEFAULT_LETTERS + DEFAULT_NUMBERS)
     )
+    ask_letter_names: bool = True
+    ask_letter_sounds: bool = False
 
     def validate(self) -> None:
+        if not self.ask_letter_names and not self.ask_letter_sounds:
+            raise ValueError(
+                "CRITICAL: At least one prompt mode (names or sounds) must be selected."
+            )
         if len(self.selected_symbols) < MIN_SELECTED_SYMBOLS:
             raise ValueError(
                 f"CRITICAL: At least {MIN_SELECTED_SYMBOLS} symbols must be selected, "
@@ -50,7 +56,13 @@ def load_config(config_path: Path | None = None) -> GameConfig:
         symbols = data.get("selected_symbols")
         if not isinstance(symbols, list):
             raise ValueError("CRITICAL: 'selected_symbols' must be a list in config.json.")
-        cfg = GameConfig(selected_symbols=[str(s) for s in symbols])
+        ask_names = bool(data.get("ask_letter_names", True))
+        ask_sounds = bool(data.get("ask_letter_sounds", False))
+        cfg = GameConfig(
+            selected_symbols=[str(s) for s in symbols],
+            ask_letter_names=ask_names,
+            ask_letter_sounds=ask_sounds,
+        )
         cfg.validate()
         return cfg
     except (json.JSONDecodeError, ValueError) as err:
@@ -61,6 +73,10 @@ def save_config(cfg: GameConfig, config_path: Path | None = None) -> Path:
     cfg.validate()
     path = config_path or get_default_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"selected_symbols": cfg.selected_symbols}
+    payload = {
+        "selected_symbols": cfg.selected_symbols,
+        "ask_letter_names": cfg.ask_letter_names,
+        "ask_letter_sounds": cfg.ask_letter_sounds,
+    }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path

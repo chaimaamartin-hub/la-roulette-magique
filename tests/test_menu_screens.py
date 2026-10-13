@@ -37,6 +37,9 @@ def test_main_menu_button_clicks() -> None:
     surf = pygame.Surface((1280, 720))
     fm = FontManager()
     menu.render(surf, fm, mouse_pos=(100, 100))
+    # Verify title font at 1080p produces expected ~77pt size
+    title_font = fm.get_title_font(int(77 * 1.0))
+    assert title_font.get_height() > 60
 
 
 
@@ -94,5 +97,53 @@ def test_score_screen_validation_failure_paths() -> None:
         ScoreScreen(0, 720, score=5)
     with pytest.raises(ValueError, match="CRITICAL: screen dimensions must be positive"):
         ScoreScreen(1280, -100, score=5)
+
+
+def test_config_screen_prompt_modes_toggles_and_constraints() -> None:
+    from src.font_manager import FontManager
+
+    cfg = GameConfig(
+        selected_symbols=["A", "B", "C", "D", "E"],
+        ask_letter_names=True,
+        ask_letter_sounds=False,
+    )
+    screen = ConfigScreen(1280, 720, cfg)
+
+    # Initially: names=True, sounds=False
+    assert screen.btn_mode_names.checked
+    assert not screen.btn_mode_sounds.checked
+
+    # Failure path 1: Cannot uncheck names when sounds is False
+    ev_names = pygame.event.Event(
+        pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": screen.btn_mode_names.rect.center}
+    )
+    screen.handle_event(ev_names)
+    assert screen.btn_mode_names.checked
+    assert cfg.ask_letter_names
+
+    # Happy path: Check sounds -> both active
+    ev_sounds = pygame.event.Event(
+        pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": screen.btn_mode_sounds.rect.center}
+    )
+    screen.handle_event(ev_sounds)
+    assert screen.btn_mode_sounds.checked
+    assert cfg.ask_letter_sounds
+
+    # Now uncheck names -> only sounds active
+    screen.handle_event(ev_names)
+    assert not screen.btn_mode_names.checked
+    assert not cfg.ask_letter_names
+    assert screen.btn_mode_sounds.checked
+
+    # Failure path 2: Cannot uncheck sounds when names is False
+    screen.handle_event(ev_sounds)
+    assert screen.btn_mode_sounds.checked
+    assert cfg.ask_letter_sounds
+
+    # Render check
+    surf = pygame.Surface((1280, 720))
+    fm = FontManager()
+    screen.render(surf, fm, mouse_pos=(100, 100))
+
 
 

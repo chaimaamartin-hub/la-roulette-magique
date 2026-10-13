@@ -45,24 +45,45 @@ def draw_play_icon(
     render_unicode_symbol(surface, center, "▶", size, color)
 
 
-_gear_cache: dict[tuple[int, tuple[int, int, int]], pygame.Surface] = {}
+import io
+_icon_cache: dict[tuple[str, int, tuple[int, int, int]], pygame.Surface] = {}
+
+_BUILTIN_SVGS: dict[str, str] = {
+    "arrow_left": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100" height="100">'
+        '<path d="M19 12H5 M11 6L5 12L11 18" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+        '</svg>'
+    ),
+    "close": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100" height="100">'
+        '<line x1="5" y1="5" x2="19" y2="19" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>'
+        '<line x1="19" y1="5" x2="5" y2="19" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>'
+        '</svg>'
+    ),
+}
 
 
-def get_gear_svg_path() -> Path:
+def get_icon_svg_path(name: str) -> Path:
+    if not name:
+        raise ValueError("CRITICAL: Icon name must not be empty.")
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
     else:
         base = Path(__file__).resolve().parent.parent
-    return base / "assets" / "images" / "icons" / "gear.svg"
+    return base / "assets" / "images" / "icons" / f"{name}.svg"
+
+
+def get_gear_svg_path() -> Path:
+    return get_icon_svg_path("gear")
 
 
 def get_gear_surface(size: int, color: tuple[int, int, int]) -> pygame.Surface:
     if size <= 0:
         raise ValueError(f"CRITICAL: Gear size must be positive, got {size}")
 
-    key = (size, color)
-    if key in _gear_cache:
-        return _gear_cache[key]
+    key = ("gear", size, color)
+    if key in _icon_cache:
+        return _icon_cache[key]
 
     svg_path = get_gear_svg_path()
     if not svg_path.is_file():
@@ -73,7 +94,35 @@ def get_gear_surface(size: int, color: tuple[int, int, int]) -> pygame.Surface:
     if color != (255, 255, 255):
         scaled.fill(color, special_flags=pygame.BLEND_RGBA_MULT)
 
-    _gear_cache[key] = scaled
+    _icon_cache[key] = scaled
+    return scaled
+
+
+def get_icon_surface(name: str, size: int, color: tuple[int, int, int]) -> pygame.Surface:
+    if not name:
+        raise ValueError("CRITICAL: Icon name must not be empty.")
+    if size <= 0:
+        raise ValueError(f"CRITICAL: Icon size must be positive, got {size}")
+    if name == "gear":
+        return get_gear_surface(size, color)
+
+    key = (name, size, color)
+    if key in _icon_cache:
+        return _icon_cache[key]
+
+    if name in _BUILTIN_SVGS:
+        loaded = pygame.image.load(io.BytesIO(_BUILTIN_SVGS[name].encode("utf-8")))
+    else:
+        svg_path = get_icon_svg_path(name)
+        if not svg_path.is_file():
+            raise FileNotFoundError(f"CRITICAL: Icon SVG not found at {svg_path}")
+        loaded = pygame.image.load(str(svg_path))
+
+    scaled = pygame.transform.smoothscale(loaded, (size, size))
+    if color != (255, 255, 255):
+        scaled.fill(color, special_flags=pygame.BLEND_RGBA_MULT)
+
+    _icon_cache[key] = scaled
     return scaled
 
 
@@ -83,7 +132,9 @@ def draw_gear_icon(
     radius: int,
     color: tuple[int, int, int],
 ) -> None:
-    size = max(16, int(radius * 1.8))
+    if radius <= 0:
+        raise ValueError(f"CRITICAL: Radius must be positive, got {radius}")
+    size = max(16, int(radius * 1.3))
     gear_surf = get_gear_surface(size, color)
     rect = gear_surf.get_rect(center=center)
     surface.blit(gear_surf, rect)
@@ -95,7 +146,12 @@ def draw_close_circle_icon(
     radius: int,
     color: tuple[int, int, int],
 ) -> None:
-    render_unicode_symbol(surface, center, "✕", int(radius * 1.8), color)
+    if radius <= 0:
+        raise ValueError(f"CRITICAL: Radius must be positive, got {radius}")
+    size = max(16, int(radius * 1.3))
+    icon_surf = get_icon_surface("close", size, color)
+    rect = icon_surf.get_rect(center=center)
+    surface.blit(icon_surf, rect)
 
 
 def draw_arrow_left_icon(
@@ -104,7 +160,12 @@ def draw_arrow_left_icon(
     size: int,
     color: tuple[int, int, int],
 ) -> None:
-    render_unicode_symbol(surface, center, "←", size, color)
+    if size <= 0:
+        raise ValueError(f"CRITICAL: Size must be positive, got {size}")
+    icon_sz = max(16, int(size * 1.3))
+    icon_surf = get_icon_surface("arrow_left", icon_sz, color)
+    rect = icon_surf.get_rect(center=center)
+    surface.blit(icon_surf, rect)
 
 
 def draw_progress_stars(
@@ -155,3 +216,18 @@ def draw_progress_circles(
         radius=radius,
         spacing=spacing,
     )
+
+
+def get_hand_cursor_path() -> Path:
+    return get_icon_svg_path("hand_cursor")
+
+
+def init_hand_cursor() -> pygame.cursors.Cursor:
+    cursor_path = get_hand_cursor_path()
+    if not cursor_path.is_file():
+        raise FileNotFoundError(f"CRITICAL: Hand cursor SVG not found at {cursor_path}")
+    surf = pygame.image.load(str(cursor_path))
+    cursor = pygame.cursors.Cursor((4, 4), surf)
+    pygame.mouse.set_cursor(cursor)
+    return cursor
+

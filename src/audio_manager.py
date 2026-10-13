@@ -82,12 +82,17 @@ class AudioManager:
         self,
         symbol: str,
         utterance_type: Literal["question", "ans_pos", "ans_neg"],
+        prompt_mode: Literal["NAME", "PHONETIC"] = "NAME",
     ) -> Path:
         if not symbol or not symbol.strip():
             raise ValueError("CRITICAL: Symbol cannot be empty.")
 
         is_digit = symbol.strip().isdigit()
-        cat = "number" if is_digit else "letter"
+        if prompt_mode == "PHONETIC" and not is_digit:
+            cat = "phonetic"
+        else:
+            cat = "number" if is_digit else "letter"
+
         # Normalize letters to uppercase for audio file lookup
         normalized_sym = symbol.strip() if is_digit else symbol.strip().upper()
 
@@ -115,9 +120,17 @@ class AudioManager:
         self,
         symbol: str,
         utterance_type: Literal["question", "ans_pos", "ans_neg"],
+        prompt_mode: Literal["NAME", "PHONETIC"] = "NAME",
     ) -> bool:
-        path = self.resolve_audio_path(symbol, utterance_type)
+        path = self.resolve_audio_path(symbol, utterance_type, prompt_mode=prompt_mode)
         if not path.is_file():
+            # If phonetic clip is not yet generated, fall back to standard letter name clip
+            if prompt_mode == "PHONETIC":
+                fallback_path = self.resolve_audio_path(symbol, utterance_type, prompt_mode="NAME")
+                if fallback_path.is_file():
+                    sound = pygame.mixer.Sound(str(fallback_path))
+                    self.channel_voice.play(sound)
+                    return True
             raise FileNotFoundError(f"CRITICAL: Voice file not found at {path}")
 
         sound = pygame.mixer.Sound(str(path))

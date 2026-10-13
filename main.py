@@ -23,6 +23,7 @@ from src.font_manager import FontManager
 from src.game_screen import GameScreen
 from src.game_state import GameSession
 from src.menu_screens import ConfigScreen, MainMenuScreen, ScoreScreen
+from src.ui_icons import init_hand_cursor
 
 SCREEN_WIDTH: int = 1920
 SCREEN_HEIGHT: int = 1080
@@ -72,6 +73,7 @@ def run_app(argv: list[str] | None = None) -> int:
         screen = pygame.display.set_mode((win_w, win_h))
 
     pygame.display.set_caption("Les Cartes Magiques")
+    init_hand_cursor()
 
     clock = pygame.time.Clock()
     fm = FontManager()
@@ -98,6 +100,8 @@ def run_app(argv: list[str] | None = None) -> int:
                 if current_state == "MENU":
                     running = False
                     break
+                if score_screen is not None:
+                    score_screen.close()
                 am.stop_all()
                 current_state = "MENU"
                 continue
@@ -114,17 +118,29 @@ def run_app(argv: list[str] | None = None) -> int:
                 action = score_screen.handle_event(event)
 
             if action == "QUIT":
+                if score_screen is not None:
+                    score_screen.close()
                 running = False
                 break
             elif action == "MENU":
+                if score_screen is not None:
+                    score_screen.close()
                 am.stop_all()
                 current_state = "MENU"
             elif action == "CONFIG":
+                if score_screen is not None:
+                    score_screen.close()
                 config_screen = ConfigScreen(win_w, win_h, config)
                 current_state = "CONFIG"
             elif action == "PLAY":
+                if score_screen is not None:
+                    score_screen.close()
                 am.stop_all()
-                session = GameSession(config.selected_symbols)
+                session = GameSession(
+                    symbol_pool=config.selected_symbols,
+                    ask_letter_names=config.ask_letter_names,
+                    ask_letter_sounds=config.ask_letter_sounds,
+                )
                 game_screen = GameScreen(win_w, win_h, session, am)
                 current_state = "PLAY"
             elif action == "SCORE" and game_screen is not None:

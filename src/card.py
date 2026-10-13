@@ -31,6 +31,7 @@ class Card:
         self.height: int = target_rect.height
 
         self.state: AnimationState = "FLYING_IN"
+        self.is_wrong: bool = False
         self.state_time: float = 0.0
         self.fly_in_duration: float = 0.5
         self.fly_out_duration: float = 0.5
@@ -78,6 +79,7 @@ class Card:
         self.state_time = 0.0
 
     def trigger_red_flash(self) -> None:
+        self.is_wrong = True
         self.state = "RED_FLASH"
         self.state_time = 0.0
 
@@ -89,7 +91,7 @@ class Card:
         return pygame.Rect(int(self.current_x), int(self.current_y), self.width, self.height)
 
     def is_clicked(self, pos: tuple[int, int]) -> bool:
-        if self.state not in ("IDLE", "RED_FLASH"):
+        if self.is_wrong or self.state not in ("IDLE", "RED_FLASH"):
             return False
         return self.get_current_rect().collidepoint(pos)
 
@@ -102,24 +104,41 @@ class Card:
     ) -> None:
         rect = self.get_current_rect()
         is_hovered = mouse_pos is not None and rect.collidepoint(mouse_pos)
-        if is_hovered and self.state in ("IDLE", "FLYING_IN"):
+        if self.is_wrong and self.state != "RED_FLASH":
+            bg_color = (235, 235, 238)
+            border_color = (205, 205, 212)
+            border_width = 3
+            text_color = (170, 170, 175)
+        elif is_hovered and self.state in ("IDLE", "FLYING_IN"):
             bg_color = (255, 252, 220)  # Very light yellow hover
             border_color = (220, 210, 160)
+            border_width = 4
+            text_color = (34, 34, 34)
         else:
             bg_color = (255, 255, 255)
             border_color = (200, 200, 210)
-        border_width = 4
-        text_color = (34, 34, 34)
+            border_width = 4
+            text_color = (34, 34, 34)
 
         if self.state == "RED_FLASH":
             factor = 1.0 - (self.state_time / self.red_flash_duration)
             factor = max(0.0, min(1.0, factor))
-            r = int(255)
-            g = int(255 - (255 - 77) * factor)
-            b = int(255 - (255 - 77) * factor)
-            bg_color = (r, g, b)
-            border_color = (255, 77, 77)
-            border_width = 6
+            bg_color = (
+                int(235 + (255 - 235) * factor),
+                int(235 - (235 - 77) * factor),
+                int(238 - (238 - 77) * factor),
+            )
+            border_color = (
+                int(205 + (255 - 205) * factor),
+                int(205 - (205 - 77) * factor),
+                int(212 - (212 - 77) * factor),
+            )
+            border_width = 4
+            text_color = (
+                int(170 - (170 - 34) * (1.0 - factor)),
+                int(170 - (170 - 34) * (1.0 - factor)),
+                int(175 - (175 - 34) * (1.0 - factor)),
+            )
 
         elif self.state == "RAINBOW_FLASH":
             hue = (self.state_time / self.rainbow_duration) % 1.0

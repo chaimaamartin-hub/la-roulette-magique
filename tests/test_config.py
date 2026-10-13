@@ -60,3 +60,32 @@ def test_get_default_config_path_frozen(monkeypatch: pytest.MonkeyPatch) -> None
     resolved = get_default_config_path()
     assert resolved == Path("C:/games/config.json")
 
+
+def test_config_prompt_modes_validation() -> None:
+    # Happy paths
+    cfg_names = GameConfig(ask_letter_names=True, ask_letter_sounds=False)
+    cfg_names.validate()
+    cfg_sounds = GameConfig(ask_letter_names=False, ask_letter_sounds=True)
+    cfg_sounds.validate()
+    cfg_both = GameConfig(ask_letter_names=True, ask_letter_sounds=True)
+    cfg_both.validate()
+
+    # Failure path 1: Both prompt modes disabled
+    cfg_none = GameConfig(ask_letter_names=False, ask_letter_sounds=False)
+    with pytest.raises(ValueError, match="CRITICAL: At least one prompt mode"):
+        cfg_none.validate()
+
+
+def test_save_and_load_config_with_prompt_modes(tmp_path: Path) -> None:
+    config_file = tmp_path / "config_modes.json"
+    cfg = GameConfig(
+        selected_symbols=["A", "B", "C", "1", "2"],
+        ask_letter_names=False,
+        ask_letter_sounds=True,
+    )
+    save_config(cfg, config_file)
+    loaded = load_config(config_file)
+    assert not loaded.ask_letter_names
+    assert loaded.ask_letter_sounds
+
+

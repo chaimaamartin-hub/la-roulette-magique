@@ -23,3 +23,7 @@ htmlcov/
 output/
 .env
 config.json
+scripts/*.png
+scripts/*.mp3
+scripts/*.wav
+scripts/*.ico

@@ -96,3 +96,23 @@ def test_play_animal_sound_failure_paths(tmp_path: Path) -> None:
         empty_am.play_animal_sound(0)
 
 
+def test_resolve_audio_path_phonetic() -> None:
+    am = AudioManager()
+    am.set_voice("FEMALE")
+    p1 = am.resolve_audio_path("A", "question", prompt_mode="PHONETIC")
+    assert p1.name == "q_phonetic_A.mp3"
+
+    p2 = am.resolve_audio_path("b", "ans_pos", prompt_mode="PHONETIC")
+    assert p2.name == "ans_pos_phonetic_B.mp3"
+
+    # Number should still resolve to number category even if PHONETIC passed
+    p3 = am.resolve_audio_path("5", "question", prompt_mode="PHONETIC")
+    assert p3.name == "q_number_5.mp3"
+
+    # Failure path: Unknown utterance type
+    with pytest.raises(ValueError, match="CRITICAL: Unknown utterance type"):
+        am.resolve_audio_path("A", "invalid_type"  # type: ignore[arg-type]
+        )
+
+
+

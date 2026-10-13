@@ -72,3 +72,98 @@ def test_cannot_advance_unsolved_round() -> None:
     session = GameSession(pool)
     with pytest.raises(RuntimeError, match="CRITICAL: Cannot advance round before target is solved"):
         session.advance_to_next_round()
+
+
+def test_no_consecutive_rounds_have_same_target() -> None:
+    # Test across multiple sessions to ensure consecutive rounds never repeat target symbol
+    pool = ["A", "B", "C", "D", "E", "F"]
+    for _ in range(25):
+        session = GameSession(pool)
+        targets: list[str] = [session.current_round.target_symbol]
+        for _ in range(TOTAL_ROUNDS - 1):
+            assert session.process_guess(session.current_round.target_symbol)
+            assert session.advance_to_next_round()
+            targets.append(session.current_round.target_symbol)
+
+        assert len(targets) == TOTAL_ROUNDS
+        for i in range(1, len(targets)):
+            assert targets[i] != targets[i - 1], f"Repeated target {targets[i]} between round {i} and {i + 1}"
+
+
+def test_init_round_validation_failure_paths() -> None:
+    pool = ["A", "B", "C", "D", "E"]
+    session = GameSession(pool)
+
+    # Failure path 1: Invalid round index <= 0 or > TOTAL_ROUNDS
+    with pytest.raises(ValueError, match="CRITICAL: round_num must be 1..10"):
+        session._init_round(0, None)
+    with pytest.raises(ValueError, match="CRITICAL: round_num must be 1..10"):
+        session._init_round(11, None)
+
+    # Failure path 2: No available targets after excluding previous target
+    session.symbol_pool = ["A"]
+    with pytest.raises(ValueError, match="CRITICAL: No available targets after excluding previous target"):
+        session._init_round(1, previous_target="A")
+
+
+def test_phonetic_mode_k_collision_avoidance_happy_path() -> None:
+    # Pool with C, K, Q and others
+    pool = ["C", "K", "Q", "A", "B", "E", "O", "T"]
+    for _ in range(20):
+        session = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+        assert session.current_round.prompt_mode == "PHONETIC"
+        target = session.current_round.target_symbol
+        displayed = session.current_round.displayed_symbols
+        assert target in displayed
+
+        # If target is C, K, or Q, the other K-sound letters must NOT be in displayed symbols
+        if target in {"C", "K", "Q"}:
+            k_letters_in_round = [s for s in displayed if s in {"C", "K", "Q"}]
+            assert k_letters_in_round == [target], f"K-sound collision detected: {displayed}"
+
+
+def test_phonetic_mode_silent_letters_exclusion() -> None:
+    # Silent letters (H, W, X) must never be chosen as phonetic targets
+    pool = ["H", "W", "X", "A", "B", "1", "2"]
+    for _ in range(20):
+        session = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+        if session.current_round.prompt_mode == "PHONETIC":
+            assert session.current_round.target_symbol not in {"H", "W", "X"}
+
+
+def test_phonetic_mode_failure_paths() -> None:
+    pool = ["A", "B", "C", "D", "E"]
+
+    # Failure path 1: Both prompt modes disabled
+    with pytest.raises(ValueError, match="CRITICAL: At least one prompt mode"):
+        GameSession(pool, ask_letter_names=False, ask_letter_sounds=False)
+
+    # Failure path 2: Insufficient distractors satisfying phonetic constraints
+    k_only_pool = ["C", "K", "Q", "c", "k"]
+    with pytest.raises(ValueError, match="CRITICAL: Not enough distractors in pool satisfying phonetic constraints"):
+        GameSession(k_only_pool, ask_letter_names=False, ask_letter_sounds=True)
+
+
+def test_phonetic_mode_includes_numbers() -> None:
+    # 1 Happy Path: Numbers and letters are both chosen in letter sound mode
+    pool = ["A", "B", "C", "D", "1", "2", "3", "4"]
+    number_targets_count = 0
+    letter_targets_count = 0
+
+    for _ in range(50):
+        session = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+        target = session.current_round.target_symbol
+        if target.isdigit():
+            number_targets_count += 1
+            # Number target must have NAME prompt mode
+            assert session.current_round.prompt_mode == "NAME"
+        else:
+            letter_targets_count += 1
+            # Letter target must have PHONETIC prompt mode
+            assert session.current_round.prompt_mode == "PHONETIC"
+
+    assert number_targets_count > 0, "Numbers were never selected in phonetic mode!"
+    assert letter_targets_count > 0, "Letters were never selected in phonetic mode!"
+
+
+
