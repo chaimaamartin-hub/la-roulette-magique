@@ -1,7 +1,7 @@
 from typing import Literal
 import pygame
 
-from src.animal_manager import AnimalManager
+from src.animal_manager import AnimalManager, get_score_subtitle
 from src.audio_manager import AudioManager
 from src.font_manager import FontManager
 from src.ui_elements import UIIconButton, draw_progress_stars
@@ -133,3 +133,17 @@ class ScoreScreen:
             surface.blit(btn_surf, orig_rect.topleft)
         else:
             self.btn_replay.render(surface, mouse_pos)
+
+        # 4. Motivational message in small font and very light grey at bottom of screen
+        msg_text = get_score_subtitle(self.score)
+        msg_font = fm.get_ui_font(max(14, int(20 * self.scale)), bold=False)
+        msg_surf = msg_font.render(msg_text, True, (190, 190, 200))
+        msg_rect = msg_surf.get_rect(center=(center_x, self.h - int(35 * self.scale)))
+
+        if alpha < 255:
+            msg_temp = msg_surf.copy()
+            msg_temp.set_alpha(alpha)
+            surface.blit(msg_temp, msg_rect)
+        else:
+            surface.blit(msg_surf, msg_rect)
+

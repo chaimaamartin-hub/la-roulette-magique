@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from typing import TypedDict
 import pygame
 
 SCORE_ANIMAL_MAP: dict[int, str] = {
@@ -15,6 +16,80 @@ SCORE_ANIMAL_MAP: dict[int, str] = {
     9: "score_9_lion.png",
     10: "score_10_bear.png",
 }
+
+
+class ScoreMotivation(TypedDict):
+    spoken: str
+    french: str
+    english: str
+
+
+SCORE_MOTIVATION_MESSAGES: dict[int, ScoreMotivation] = {
+    0: {
+        "spoken": "Hop, hop ! Courage, réessaie !",
+        "french": "Courage, réessaie !",
+        "english": "Don't give up, try again!",
+    },
+    1: {
+        "spoken": "Bzz, bzz ! Continue, tu peux le faire !",
+        "french": "Continue, tu peux le faire !",
+        "english": "Keep going, you can do it!",
+    },
+    2: {
+        "spoken": "Coâ, coâ ! C'est un bon début !",
+        "french": "C'est un bon début !",
+        "english": "That's a good start!",
+    },
+    3: {
+        "spoken": "Coin, coin ! Tu apprends vite !",
+        "french": "Tu apprends vite !",
+        "english": "You're learning fast!",
+    },
+    4: {
+        "spoken": "Hop, hop ! Continue comme ça !",
+        "french": "Continue comme ça !",
+        "english": "Keep it up, you're doing great!",
+    },
+    5: {
+        "spoken": "Miaou, miaou ! C'est super !",
+        "french": "C'est super !",
+        "english": "That's wonderful!",
+    },
+    6: {
+        "spoken": "Ouaf, ouaf ! Tu y es presque !",
+        "french": "Tu y es presque !",
+        "english": "You're getting there!",
+    },
+    7: {
+        "spoken": "Yap, yap ! Bien joué, petit malin !",
+        "french": "Bien joué, petit malin !",
+        "english": "Well played, clever one!",
+    },
+    8: {
+        "spoken": "Bêê, bêê ! Formidable !",
+        "french": "Formidable !",
+        "english": "Fantastic work!",
+    },
+    9: {
+        "spoken": "Rrroaar ! Très bien !",
+        "french": "Très bien !",
+        "english": "Very good!",
+    },
+    10: {
+        "spoken": "Grrroaar ! Parfait !",
+        "french": "Parfait !",
+        "english": "Perfect!",
+    },
+}
+
+
+def get_score_subtitle(score: int) -> str:
+    if not isinstance(score, int):
+        raise TypeError(f"CRITICAL: score must be an int, got {type(score).__name__}")
+    if score < 0 or score > 10:
+        raise ValueError(f"CRITICAL: score must be between 0 and 10, got {score}")
+    entry = SCORE_MOTIVATION_MESSAGES[score]
+    return f"{entry['french']} - {entry['english']}"
 
 
 def get_animals_dir() -> Path:

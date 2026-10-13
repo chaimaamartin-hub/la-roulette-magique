@@ -55,3 +55,25 @@ def test_animal_manager_invalid_size_and_missing_dir_failure_paths(tmp_path: Pat
     empty_dir = tmp_path / "non_existent_animals"
     with pytest.raises(FileNotFoundError, match="CRITICAL: Animals directory not found"):
         AnimalManager(animals_dir=empty_dir)
+
+
+def test_get_score_subtitle() -> None:
+    from src.animal_manager import get_score_subtitle
+
+    # Happy path: Returns valid French - English subtitle string
+    assert get_score_subtitle(1) == "Continue, tu peux le faire ! - Keep going, you can do it!"
+    assert get_score_subtitle(10) == "Parfait ! - Perfect!"
+    assert get_score_subtitle(0) == "Courage, réessaie ! - Don't give up, try again!"
+
+    # Failure path 1: Score < 0 raises ValueError
+    with pytest.raises(ValueError, match="CRITICAL: score must be between 0 and 10"):
+        get_score_subtitle(-1)
+
+    # Failure path 2: Score > 10 raises ValueError
+    with pytest.raises(ValueError, match="CRITICAL: score must be between 0 and 10"):
+        get_score_subtitle(11)
+
+    # Failure path 3: Non-integer score raises TypeError
+    with pytest.raises(TypeError, match="CRITICAL: score must be an int"):
+        get_score_subtitle(3.5)  # type: ignore[arg-type]
+

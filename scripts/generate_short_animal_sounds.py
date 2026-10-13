@@ -17,70 +17,71 @@ SHORT_MANIFEST = [
     {
         "score": 0,
         "name": "ant",
-        "text": "Tchiki !",
-        "style": "Short, tiny, quick playful squeak of an ant. Very brief, strictly under 1 second.",
+        "text": "Hop, hop ! Courage, réessaie !",
+        "style": "Energetic, friendly preschool teacher imitating tiny brisk ant footsteps then warm encouraging cheer: Hop, hop ! Courage, réessaie !",
     },
     {
         "score": 1,
         "name": "fly",
-        "text": "Bzzz !",
-        "style": "Short, quick, friendly buzz sound of a fly. Very brief, strictly under 1 second.",
+        "text": "Bzz, bzz ! Continue, tu peux le faire !",
+        "style": "Cheerful preschool teacher imitating playful buzzy fly then encouraging cheer: Bzz, bzz ! Continue, tu peux le faire !",
     },
     {
         "score": 2,
         "name": "frog",
-        "text": "Coâ, coâ !",
-        "style": "Short, cute, friendly double croak of a little frog. Quick, under 1.2 seconds.",
+        "text": "Coâ, coâ ! C'est un bon début !",
+        "style": "Cheerful preschool teacher imitating cute double frog croak then positive encouragement: Coâ, coâ ! C'est un bon début !",
     },
     {
         "score": 3,
         "name": "duck",
-        "text": "Coin, coin !",
-        "style": "Short, cheerful double quack of a little duck. Quick, under 1.2 seconds.",
+        "text": "Coin, coin ! Tu apprends vite !",
+        "style": "Cheerful preschool teacher imitating playful duck quack then positive encouragement: Coin, coin ! Tu apprends vite !",
     },
     {
         "score": 4,
         "name": "bunny",
-        "text": "Hop !",
-        "style": "Short, cute, playful little bunny hop sound. Very brief, strictly under 1 second.",
+        "text": "Hop, hop ! Continue comme ça !",
+        "style": "Cheerful preschool teacher imitating cute bunny hops then energetic encouragement: Hop, hop ! Continue comme ça !",
     },
     {
         "score": 5,
         "name": "cat",
-        "text": "Miaou !",
-        "style": "Short, gentle, sweet single meow of a cute kitten. Quick, under 1.2 seconds.",
+        "text": "Miaou, miaou ! C'est super !",
+        "style": "Warm preschool teacher imitating sweet kitten meow then enthusiastic cheer: Miaou, miaou ! C'est super !",
     },
     {
         "score": 6,
         "name": "dog",
-        "text": "Ouaf, ouaf !",
-        "style": "Short, cheerful, energetic double bark of a puppy. Quick, under 1.2 seconds.",
+        "text": "Ouaf, ouaf ! Tu y es presque !",
+        "style": "Cheerful preschool teacher imitating energetic happy puppy bark then encouraging cheer: Ouaf, ouaf ! Tu y es presque !",
     },
     {
         "score": 7,
         "name": "fox",
-        "text": "Yap, yap !",
-        "style": "Short, playful double yip of a clever little fox. Quick, under 1.2 seconds.",
+        "text": "Yap, yap ! Bien joué, petit malin !",
+        "style": "Cheerful preschool teacher imitating clever little fox playful yip then cheerful cheer: Yap, yap ! Bien joué, petit malin !",
     },
     {
         "score": 8,
         "name": "sheep",
-        "text": "Bêêê !",
-        "style": "Short, warm, friendly single bleat of a fluffy sheep. Quick, under 1.3 seconds.",
+        "text": "Bêê, bêê ! Formidable !",
+        "style": "Warm preschool teacher imitating friendly sheep bleat then celebratory praise: Bêê, bêê ! Formidable !",
     },
     {
         "score": 9,
         "name": "lion",
-        "text": "Roarrr !",
-        "style": "Short, playful, cute little roar of a baby lion cub. Quick, under 1.3 seconds.",
+        "text": "Rroarrr ! Très bien !",
+        "style": "Playful preschool teacher imitating cute friendly lion cub roar then proud celebratory praise: Rroarrr ! Très bien !",
     },
     {
         "score": 10,
         "name": "bear",
-        "text": "Grrr, roarr !",
-        "style": "Short, friendly, rumbling bear roar and growl. Brief, strictly under 1.6 seconds.",
+        "text": "Grroaar ! Parfait !",
+        "style": "Warm preschool teacher imitating friendly gentle bear growl and roar then celebratory praise: Grroaar ! Parfait !",
     },
 ]
+
 
 
 def synthesize_and_trim(
@@ -126,9 +127,13 @@ def synthesize_and_trim(
     temp_wav.write_bytes(wav_bytes)
 
     ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
-    # Convert to MP3 and strictly limit duration to max_duration with gentle fade out at end
-    fade_start = max(0.5, max_duration - 0.25)
-    filter_arg = f"atrim=0:{max_duration},afade=t=out:st={fade_start}:d=0.25"
+    # Trim silence and gracefully cap at max_duration with gentle fade
+    fade_start = max(1.0, max_duration - 0.25)
+    filter_arg = (
+        f"silenceremove=start_periods=1:start_duration=0.04:start_threshold=-45dB:"
+        f"stop_periods=1:stop_duration=0.2:stop_threshold=-45dB,"
+        f"atrim=0:{max_duration},afade=t=out:st={fade_start}:d=0.25"
+    )
     cmd = [
         ffmpeg_bin,
         "-y",
@@ -196,11 +201,10 @@ def main() -> None:
                         voice_name=voice_name,
                         style_prompt=item["style"],
                         output_path=out_file,
-                        max_duration=1.85,
+                        max_duration=3.5,
                     )
                     dur = get_duration(out_file)
-                    print(f"  -> Saved {out_file.name}: duration = {dur:.2f}s (<= 2.0s OK)")
-                    assert dur <= 2.0, f"Duration {dur} exceeds 2.0s"
+                    print(f"  -> Saved {out_file.name}: duration = {dur:.2f}s")
                     break
                 except Exception as e:
                     retries -= 1
