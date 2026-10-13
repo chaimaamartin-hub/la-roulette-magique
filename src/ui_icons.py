@@ -80,6 +80,7 @@ def draw_progress_stars(
     filled_color: tuple[int, int, int] = (235, 165, 0),
     empty_color: tuple[int, int, int] = (20, 20, 25),
     unplayed_color: tuple[int, int, int] = (190, 190, 200),
+    star_y_offsets: list[int] | None = None,
 ) -> None:
     cx, cy = center_pos
     total_w = (total_rounds - 1) * spacing
@@ -88,16 +89,17 @@ def draw_progress_stars(
 
     for i in range(total_rounds):
         x = start_x + i * spacing
+        y = cy + (star_y_offsets[i] if star_y_offsets and i < len(star_y_offsets) else 0)
         if i < len(round_results):
             if round_results[i]:
                 # Correct round: Golden yellow filled star ★
-                render_unicode_symbol(surface, (x, cy), "★", font_sz, filled_color)
+                render_unicode_symbol(surface, (x, y), "★", font_sz, filled_color)
             else:
                 # Wrong initial attempt: Empty star ☆
-                render_unicode_symbol(surface, (x, cy), "☆", font_sz, empty_color)
+                render_unicode_symbol(surface, (x, y), "☆", font_sz, empty_color)
         else:
             # Unplayed round: Grey empty star ☆
-            render_unicode_symbol(surface, (x, cy), "☆", font_sz, unplayed_color)
+            render_unicode_symbol(surface, (x, y), "☆", font_sz, unplayed_color)
 
 
 def draw_progress_circles(

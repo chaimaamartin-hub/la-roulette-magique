@@ -134,7 +134,9 @@ class AudioManager:
             raise ValueError(f"CRITICAL: score must be between 0 and 10, got {score}")
 
         filename = SCORE_ANIMAL_AUDIO_MAP[score]
-        path = self.animals_dir / filename
+        subfolder = "voice_female" if self.current_voice == "FEMALE" else "voice_male"
+        voice_path = self.animals_dir / subfolder / filename
+        path = voice_path if voice_path.is_file() else (self.animals_dir / filename)
         if not path.is_file():
             raise FileNotFoundError(f"CRITICAL: Animal sound file not found at {path}")
 

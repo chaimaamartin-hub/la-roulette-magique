@@ -131,6 +131,8 @@ def run_app(argv: list[str] | None = None) -> int:
                     audio_mgr=am,
                 )
                 current_state = "SCORE"
+        elif current_state == "SCORE" and score_screen is not None:
+            score_screen.update(dt)
 
         # Render active screen
         if current_state == "MENU":

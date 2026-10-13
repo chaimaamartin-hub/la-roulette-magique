@@ -74,3 +74,18 @@ def test_score_screen_buttons_and_render() -> None:
     fm = FontManager()
     score.render(surf, fm, mouse_pos=(100, 100))
 
+    # Test animation updates
+    score.update(0.2)
+    score.render(surf, fm, mouse_pos=(100, 100))
+    score.update(0.4)
+    score.render(surf, fm, mouse_pos=(100, 100))
+
+
+def test_score_screen_validation_failure_paths() -> None:
+    # Failure path: Invalid screen dimensions
+    with pytest.raises(ValueError, match="CRITICAL: screen dimensions must be positive"):
+        ScoreScreen(0, 720, score=5)
+    with pytest.raises(ValueError, match="CRITICAL: screen dimensions must be positive"):
+        ScoreScreen(1280, -100, score=5)
+
+

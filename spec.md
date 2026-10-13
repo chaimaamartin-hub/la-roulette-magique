@@ -19,10 +19,23 @@
 
 ## 2. Audio & Speech Architecture (Flash Audio)
 
-### 2.1 Voice Personas
-* **Female Voice (Selected):** `Aoede` — Friendly, warm, expressive French tutor tone ("voix féminine d'institutrice").
-* **Male Voice (Selected):** `Puck` — Playful, gentle, warm French tutor tone ("voix masculine d'instituteur").
-* **Selection:** At the start of each round, randomly pick Voice A or Voice B. All dialogue within that round uses the selected voice.
+### 2.1 Voice Personas & Model Mapping
+* **Letters & Numbers — Female Voice:** `Aoede`
+  * Engine: Gemini 3.8 Flash TTS (`model_name: "gemini-3.8-flash-tts"` via Vertex AI)
+  * Configuration: `prebuiltVoiceConfig: {"voiceName": "Aoede"}`
+  * Tone: Friendly, warm French preschool teacher (*institutrice*), sweet and encouraging.
+  * Active by default in `AudioManager`.
+  * Folder: `assets/audio/voice_female/` (138 clips: 26 letters + 20 numbers × 3 utterance types).
+* **Letters & Numbers — Male Voice:** `Puck`
+  * Engine: Gemini 3.8 Flash TTS (`model_name: "gemini-3.8-flash-tts"` via Vertex AI)
+  * Configuration: `prebuiltVoiceConfig: {"voiceName": "Puck"}`
+  * Tone: Warm, playful, encouraging French male teacher (*instituteur*).
+  * Folder: `assets/audio/voice_male/` (138 clips: 26 letters + 20 numbers × 3 utterance types).
+* **Score Animal Sounds (Result Screen Mascot Audio):** Both `Aoede` (Female) and `Puck` (Male)
+  * Engine: Gemini 3.8 Flash TTS (`model_name: "gemini-3.8-flash-tts"` via Vertex AI)
+  * Configuration: `prebuiltVoiceConfig: {"voiceName": "Aoede"}` and `{"voiceName": "Puck"}` matching the session's active voice.
+  * Duration Constraint: Strictly under 2.0 seconds (short, punchy onomatopoeias trimmed and faded with FFmpeg, e.g. *"Tchiki !"*, *"Bzzz !"*, *"Coâ, coâ !"*, *"Ouaf, ouaf !"*, *"Grrr, roarr !"*).
+  * Folders: `assets/audio/animals/voice_female/` and `assets/audio/animals/voice_male/` (plus root `assets/audio/animals/` fallback).
 * **Audio Format:** High-quality MP3 at 192 kbps, 44.1 kHz mono (`-ar 44100 -b:a 192k`).
 
 ### 2.2 Emotion & Prompt Prompting Matrix
@@ -122,11 +135,23 @@ Audio files are generated offline via an automated Python batch script. Prompts 
 * **Validation:** Requires at least 5 total symbols selected to enable the "Save / Play" action (preventing round 8–10 setup failure).
 * **Persistence:** Selections saved locally to `config.json`.
 
-### 5.3 Score Screen
-* Displayed after Round 10.
-* Score tally: *"Bravo ! Ton score : X / 10"*.
-* Visual star rating (e.g., 1 to 3 stars based on score).
-* Prominent button: **Rejouer (Play Again)** and **Menu Principal (Home)**.
+### 5.3 Score Screen (Results Screen)
+* Displayed immediately after completing Round 10.
+* **Progress Stars:**
+  * 10 Unicode stars (`★` / `☆`) representing each round's outcome:
+    * Correct answer: Golden yellow filled star `★` (`RGB(235, 165, 0)`).
+    * Wrong attempt: Empty star `☆` (`RGB(20, 20, 25)`).
+  * **Falling Animation:** Stars start above the top edge of the screen and drop down into place using an ease-out cubic curve (duration $\le 0.45$s).
+* **Score Mascot Animal:**
+  * Visual representation of score (0: Ant, 1: Fly, 2: Frog, 3: Duck, 4: Bunny, 5: Cat, 6: Dog, 7: Fox, 8: Sheep, 9: Lion, 10: Bear).
+  * **Size:** Rendered at twice the previous size (`520px` scaled, occupying screen center).
+  * **Fade-In:** Smooth alpha fade from 0 to 255 over $\le 0.45$s.
+  * **Audio Reward:** Triggers matching animal sound clip ($\le 2.0$s) via `AudioManager.play_animal_sound(score)`.
+* **Play Button:**
+  * Centered beneath the animal illustration (`▶` icon).
+  * Sized compactly (`95px` scaled).
+  * Quick fade-in over $\le 0.4$s.
+* **Animation Timing Guarantee:** All entrance fades and drop animations complete strictly within 0.5s.
 
 ---
 
