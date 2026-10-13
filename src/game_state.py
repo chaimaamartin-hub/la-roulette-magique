@@ -35,6 +35,7 @@ class GameSession:
         self.symbol_pool: list[str] = list(symbol_pool)
         self.current_round_num: int = 1
         self.score: int = 0
+        self.round_results: list[bool] = []
         self.current_round: RoundData = self._init_round(1)
         self.is_game_over: bool = False
 
@@ -78,6 +79,8 @@ class GameSession:
     def advance_to_next_round(self) -> bool:
         if not self.current_round.is_solved:
             raise RuntimeError("CRITICAL: Cannot advance round before target is solved.")
+
+        self.round_results.append(self.current_round.first_attempt_success)
 
         if self.current_round_num >= TOTAL_ROUNDS:
             self.is_game_over = True

@@ -110,14 +110,24 @@ def run_app(argv: list[str] | None = None) -> int:
                 game_screen = GameScreen(win_w, win_h, session, am)
                 current_state = "PLAY"
             elif action == "SCORE" and game_screen is not None:
-                score_screen = ScoreScreen(win_w, win_h, game_screen.session.score)
+                score_screen = ScoreScreen(
+                    win_w,
+                    win_h,
+                    game_screen.session.score,
+                    round_results=game_screen.session.round_results,
+                )
                 current_state = "SCORE"
 
         # Update active screen
         if current_state == "PLAY" and game_screen is not None:
             play_res = game_screen.update(dt)
             if play_res == "SCORE":
-                score_screen = ScoreScreen(win_w, win_h, game_screen.session.score)
+                score_screen = ScoreScreen(
+                    win_w,
+                    win_h,
+                    game_screen.session.score,
+                    round_results=game_screen.session.round_results,
+                )
                 current_state = "SCORE"
 
         # Render active screen

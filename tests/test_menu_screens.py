@@ -25,24 +25,30 @@ def test_main_menu_button_clicks() -> None:
     assert menu.handle_event(event_outside) is None
 
 
-def test_config_screen_back_and_validation() -> None:
-    cfg = GameConfig(selected_symbols=["A", "B", "C", "D", "E"])
+def test_config_screen_back_and_autosave() -> None:
+    cfg = GameConfig(selected_symbols=["A", "B", "C", "D", "E", "F"])
     screen = ConfigScreen(1280, 720, cfg)
 
     # Click Back
     ev_back = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": screen.btn_back.rect.center})
     assert screen.handle_event(ev_back) == "MENU"
 
-    # Uncheck so count < 5
-    for box in screen.checkboxes[:2]:
-        box.checked = False
+    # Find checkbox for 'F' (currently checked, total 6)
+    box_f = [b for b in screen.checkboxes if b.label == "F"][0]
+    ev_f = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": box_f.rect.center})
+    screen.handle_event(ev_f)
+    assert not box_f.checked
+    # Autosaved to cfg
+    assert "F" not in cfg.selected_symbols
+    assert len(cfg.selected_symbols) == 5
 
-    # Try to save with only 3 checked -> should block and set error_msg
-    ev_save = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": screen.btn_save.rect.center})
-    res = screen.handle_event(ev_save)
-    assert res is None
-    assert screen.error_msg is not None
-    assert "au moins 5" in screen.error_msg
+    # Now total is 5; trying to uncheck 'E' must be prevented to maintain >= 5
+    box_e = [b for b in screen.checkboxes if b.label == "E"][0]
+    ev_e = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": box_e.rect.center})
+    screen.handle_event(ev_e)
+    assert box_e.checked
+    assert "E" in cfg.selected_symbols
+    assert len(cfg.selected_symbols) == 5
 
 
 def test_score_screen_buttons() -> None:

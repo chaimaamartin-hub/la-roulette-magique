@@ -1,6 +1,15 @@
-import math
-from typing import Callable
+from typing import Literal
 import pygame
+
+from src.ui_icons import (
+    draw_arrow_left_icon,
+    draw_close_circle_icon,
+    draw_gear_icon,
+    draw_play_icon,
+    draw_progress_circles,
+)
+
+IconType = Literal["PLAY", "GEAR", "EXIT", "ARROW_LEFT"]
 
 
 class UIButton:
@@ -55,6 +64,61 @@ class UIButton:
         surface.blit(text_surf, text_rect)
 
 
+class UIIconButton:
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        icon_type: IconType,
+        bg_color: tuple[int, int, int] = (20, 20, 25),
+        hover_color: tuple[int, int, int] = (50, 50, 60),
+        icon_color: tuple[int, int, int] = (255, 255, 255),
+        border_radius: int = 24,
+        border_color: tuple[int, int, int] | None = None,
+        border_width: int = 0,
+    ) -> None:
+        self.rect: pygame.Rect = rect
+        self.icon_type: IconType = icon_type
+        self.bg_color: tuple[int, int, int] = bg_color
+        self.hover_color: tuple[int, int, int] = hover_color
+        self.icon_color: tuple[int, int, int] = icon_color
+        self.border_radius: int = border_radius
+        self.border_color: tuple[int, int, int] | None = border_color
+        self.border_width: int = border_width
+
+    def is_hovered(self, pos: tuple[int, int]) -> bool:
+        return self.rect.collidepoint(pos)
+
+    def is_clicked(self, pos: tuple[int, int]) -> bool:
+        return self.rect.collidepoint(pos)
+
+    def render(self, surface: pygame.Surface, mouse_pos: tuple[int, int]) -> None:
+        hover = self.is_hovered(mouse_pos)
+        color = self.hover_color if hover else self.bg_color
+
+        pygame.draw.rect(surface, color, self.rect, border_radius=self.border_radius)
+
+        if self.border_color is not None and self.border_width > 0:
+            pygame.draw.rect(
+                surface,
+                self.border_color,
+                self.rect,
+                width=self.border_width,
+                border_radius=self.border_radius,
+            )
+
+        cx, cy = self.rect.center
+        icon_sz = min(self.rect.width, self.rect.height) // 2
+
+        if self.icon_type == "PLAY":
+            draw_play_icon(surface, (cx + 2, cy), icon_sz, self.icon_color)
+        elif self.icon_type == "GEAR":
+            draw_gear_icon(surface, (cx, cy), icon_sz, self.icon_color)
+        elif self.icon_type == "EXIT":
+            draw_close_circle_icon(surface, (cx, cy), icon_sz, self.icon_color)
+        elif self.icon_type == "ARROW_LEFT":
+            draw_arrow_left_icon(surface, (cx, cy), icon_sz, self.icon_color)
+
+
 class UICheckbox:
     def __init__(
         self,
@@ -97,28 +161,3 @@ class UICheckbox:
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
 
-
-def draw_star(
-    surface: pygame.Surface,
-    center: tuple[int, int],
-    radius: int,
-    filled: bool,
-    color: tuple[int, int, int] = (255, 204, 0),
-) -> None:
-    cx, cy = center
-    points: list[tuple[float, float]] = []
-    inner_radius = radius * 0.42
-
-    for i in range(10):
-        r = radius if i % 2 == 0 else inner_radius
-        angle = math.pi / 2 + i * (math.pi / 5)
-        px = cx + r * math.cos(angle)
-        py = cy - r * math.sin(angle)
-        points.append((px, py))
-
-    if filled:
-        pygame.draw.polygon(surface, color, points)
-        pygame.draw.polygon(surface, (218, 165, 32), points, width=3)
-    else:
-        pygame.draw.polygon(surface, (220, 220, 225), points)
-        pygame.draw.polygon(surface, (180, 180, 190), points, width=3)

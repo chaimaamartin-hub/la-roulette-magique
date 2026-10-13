@@ -5,7 +5,7 @@ from src.audio_manager import AudioManager
 from src.card import Card
 from src.font_manager import FontManager
 from src.game_state import GameSession
-from src.ui_elements import UIButton
+from src.ui_elements import UIIconButton, draw_progress_circles
 
 GamePhase = Literal["FLYING_IN", "WAITING_GUESS", "SOLVED_FEEDBACK", "FLYING_OUT"]
 
@@ -29,16 +29,15 @@ class GameScreen:
         self.has_played_question: bool = False
 
         self.scale: float = min(screen_w / 1920.0, screen_h / 1080.0)
-        btn_w = max(100, int(130 * self.scale))
-        btn_h = max(36, int(46 * self.scale))
-        self.btn_menu = UIButton(
-            rect=pygame.Rect(int(30 * self.scale), int(25 * self.scale), btn_w, btn_h),
-            text="Menu",
+        btn_sz = max(44, int(64 * self.scale))
+        self.btn_menu = UIIconButton(
+            rect=pygame.Rect(int(40 * self.scale), int(30 * self.scale), btn_sz, btn_sz),
+            icon_type="ARROW_LEFT",
             bg_color=(255, 255, 255),
             hover_color=(240, 240, 245),
-            text_color=(20, 20, 25),
-            border_radius=max(8, int(14 * self.scale)),
-            border_color=(30, 30, 35),
+            icon_color=(20, 20, 25),
+            border_radius=btn_sz // 2,
+            border_color=(20, 20, 25),
             border_width=2,
         )
 
@@ -138,19 +137,19 @@ class GameScreen:
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
 
-        btn_font_size = max(16, int(20 * self.scale))
-        self.btn_menu.render(surface, fm.get_font("Segoe UI", btn_font_size, bold=True), mouse_pos)
+        self.btn_menu.render(surface, mouse_pos)
 
-        info_font_size = max(18, int(28 * self.scale))
-        info_font = fm.get_font("Segoe UI", info_font_size, bold=True)
-
-        manche_text = f"Manche : {self.session.current_round_num} / 10"
-        m_surf = info_font.render(manche_text, True, (30, 30, 35))
-        surface.blit(m_surf, (self.w // 2 - m_surf.get_width() // 2, int(30 * self.scale)))
-
-        score_text = f"Score : {self.session.score}"
-        s_surf = info_font.render(score_text, True, (30, 30, 35))
-        surface.blit(s_surf, (self.w - s_surf.get_width() - int(40 * self.scale), int(30 * self.scale)))
+        # 10 progress circles on top center (no text)
+        circ_rad = max(8, int(15 * self.scale))
+        circ_spacing = max(22, int(46 * self.scale))
+        draw_progress_circles(
+            surface=surface,
+            center_pos=(self.w // 2, int(45 * self.scale)),
+            round_results=self.session.round_results,
+            total_rounds=10,
+            radius=circ_rad,
+            spacing=circ_spacing,
+        )
 
         base_font_size = 110 if len(self.cards) <= 4 else 95
         card_font_size = max(28, int(base_font_size * self.scale))

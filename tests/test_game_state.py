@@ -57,11 +57,14 @@ def test_game_session_progression_and_scoring() -> None:
     # Advance to Round 2
     assert session.advance_to_next_round()
     assert session.current_round_num == 2
+    assert session.round_results == [False]  # First round failed initial attempt
 
     # Round 2: Correct guess on first attempt -> score +1
     target2 = session.current_round.target_symbol
     assert session.process_guess(target2)
     assert session.score == 1
+    assert session.advance_to_next_round()
+    assert session.round_results == [False, True]
 
 
 def test_cannot_advance_unsolved_round() -> None:
