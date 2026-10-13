@@ -13,83 +13,92 @@ from google.auth.transport.requests import Request
 import requests
 import base64
 
-SHORT_MANIFEST = [
+ANIMAL_AUDIO_MANIFEST = [
     {
         "score": 0,
         "name": "ant",
+        "voice": "Aoede",
         "text": "Hop, hop ! Courage, réessaie !",
-        "style": "Energetic, friendly preschool teacher imitating tiny brisk ant footsteps then warm encouraging cheer: Hop, hop ! Courage, réessaie !",
+        "style": "Warm, energetic preschool teacher imitating tiny brisk ant footsteps then encouraging cheer: Hop, hop ! Courage, réessaie !",
     },
     {
         "score": 1,
         "name": "fly",
+        "voice": "Aoede",
         "text": "Bzz, bzz ! Continue, tu peux le faire !",
         "style": "Cheerful preschool teacher imitating playful buzzy fly then encouraging cheer: Bzz, bzz ! Continue, tu peux le faire !",
     },
     {
         "score": 2,
         "name": "frog",
+        "voice": "Puck",
         "text": "Coâ, coâ ! C'est un bon début !",
-        "style": "Cheerful preschool teacher imitating cute double frog croak then positive encouragement: Coâ, coâ ! C'est un bon début !",
+        "style": "Friendly preschool teacher imitating cute frog croak then positive encouragement: Coâ, coâ ! C'est un bon début !",
     },
     {
         "score": 3,
         "name": "duck",
+        "voice": "Aoede",
         "text": "Coin, coin ! Tu apprends vite !",
         "style": "Cheerful preschool teacher imitating playful duck quack then positive encouragement: Coin, coin ! Tu apprends vite !",
     },
     {
         "score": 4,
         "name": "bunny",
+        "voice": "Aoede",
         "text": "Hop, hop ! Continue comme ça !",
         "style": "Cheerful preschool teacher imitating cute bunny hops then energetic encouragement: Hop, hop ! Continue comme ça !",
     },
     {
         "score": 5,
         "name": "cat",
+        "voice": "Aoede",
         "text": "Miaou, miaou ! C'est super !",
         "style": "Warm preschool teacher imitating sweet kitten meow then enthusiastic cheer: Miaou, miaou ! C'est super !",
     },
     {
         "score": 6,
         "name": "dog",
+        "voice": "Puck",
         "text": "Ouaf, ouaf ! Tu y es presque !",
         "style": "Cheerful preschool teacher imitating energetic happy puppy bark then encouraging cheer: Ouaf, ouaf ! Tu y es presque !",
     },
     {
         "score": 7,
         "name": "fox",
+        "voice": "Puck",
         "text": "Yap, yap ! Bien joué, petit malin !",
-        "style": "Cheerful preschool teacher imitating clever little fox playful yip then cheerful cheer: Yap, yap ! Bien joué, petit malin !",
+        "style": "Playful preschool teacher imitating clever little fox yip then cheerful praise: Yap, yap ! Bien joué, petit malin !",
     },
     {
         "score": 8,
         "name": "sheep",
+        "voice": "Aoede",
         "text": "Bêê, bêê ! Formidable !",
-        "style": "Warm preschool teacher imitating friendly sheep bleat then celebratory praise: Bêê, bêê ! Formidable !",
+        "style": "Warm preschool teacher imitating friendly gentle sheep bleat then celebratory praise: Bêê, bêê ! Formidable !",
     },
     {
         "score": 9,
         "name": "lion",
+        "voice": "Puck",
         "text": "Rroarrr ! Très bien !",
         "style": "Playful preschool teacher imitating cute friendly lion cub roar then proud celebratory praise: Rroarrr ! Très bien !",
     },
     {
         "score": 10,
         "name": "bear",
+        "voice": "Puck",
         "text": "Grroaar ! Parfait !",
         "style": "Warm preschool teacher imitating friendly gentle bear growl and roar then celebratory praise: Grroaar ! Parfait !",
     },
 ]
 
 
-
-def synthesize_and_trim(
+def synthesize_and_save(
     text: str,
     voice_name: str,
     style_prompt: str,
     output_path: Path,
-    max_duration: float = 1.9,
 ) -> None:
     project_id = resolve_project_id()
     creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -127,20 +136,12 @@ def synthesize_and_trim(
     temp_wav.write_bytes(wav_bytes)
 
     ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
-    # Trim leading silence, and trailing silence via reverse-trim without cutting pauses between words
-    filter_arg = (
-        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
-        "areverse,"
-        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
-        "areverse"
-    )
+    # Direct high-quality conversion to MP3 without artificial silence removal
     cmd = [
         ffmpeg_bin,
         "-y",
         "-i",
         str(temp_wav),
-        "-af",
-        filter_arg,
         "-ar",
         "44100",
         "-b:a",
@@ -174,52 +175,50 @@ def get_duration(mp3_path: Path) -> float:
 
 
 def main() -> None:
-    root = Path("assets/audio/animals")
-    voices = [
-        ("Aoede", root / "voice_female"),
-        ("Puck", root / "voice_male"),
-    ]
+    dest_dir = Path("assets/audio/animals")
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
-    for voice_name, dest_dir in voices:
-        print(f"\n==========================================")
-        print(f"Generating for voice: {voice_name} -> {dest_dir}")
-        print(f"==========================================")
-        dest_dir.mkdir(parents=True, exist_ok=True)
+    print("\n==========================================")
+    print(f"Generating curated animal sounds -> {dest_dir}")
+    print("==========================================")
 
-        for item in SHORT_MANIFEST:
-            score = item["score"]
-            name = item["name"]
-            filename = f"score_{score}_{name}.mp3"
-            out_file = dest_dir / filename
+    for item in ANIMAL_AUDIO_MANIFEST:
+        score = item["score"]
+        name = item["name"]
+        voice_name = item["voice"]
+        filename = f"score_{score}_{name}.mp3"
+        out_file = dest_dir / filename
 
-            print(f"Generating score {score}: {name} ({voice_name})...")
-            retries = 3
-            while retries > 0:
-                try:
-                    synthesize_and_trim(
-                        text=item["text"],
-                        voice_name=voice_name,
-                        style_prompt=item["style"],
-                        output_path=out_file,
-                        max_duration=3.5,
-                    )
-                    dur = get_duration(out_file)
-                    print(f"  -> Saved {out_file.name}: duration = {dur:.2f}s")
-                    break
-                except Exception as e:
-                    retries -= 1
-                    print(f"  -> Error: {e}, retries left: {retries}")
-                    time.sleep(2)
-                    if retries == 0:
-                        raise
+        print(f"Generating score {score}: {name} ({voice_name})...")
+        retries = 3
+        while retries > 0:
+            try:
+                synthesize_and_save(
+                    text=item["text"],
+                    voice_name=voice_name,
+                    style_prompt=item["style"],
+                    output_path=out_file,
+                )
+                dur = get_duration(out_file)
+                print(f"  -> Saved {out_file.name}: duration = {dur:.2f}s (voice: {voice_name})")
+                break
+            except Exception as e:
+                retries -= 1
+                print(f"  -> Error: {e}, retries left: {retries}")
+                time.sleep(2)
+                if retries == 0:
+                    raise
 
-    # Also populate root assets/audio/animals/ with the default (Aoede) files for fallback
-    female_dir = root / "voice_female"
-    for mp3 in female_dir.glob("score_*.mp3"):
-        shutil.copy2(mp3, root / mp3.name)
-    print(f"\nCopied female voice files to root {root} as default fallback.")
-    print("\nAll animal audio successfully generated with Aoede and Puck (all <= 2.0s)!")
+    # Clean up redundant subdirectories if present
+    for sub in ["voice_female", "voice_male"]:
+        sub_p = dest_dir / sub
+        if sub_p.is_dir():
+            shutil.rmtree(sub_p)
+            print(f"Removed legacy subfolder: {sub_p}")
+
+    print("\nAll 11 curated animal audio files successfully generated directly in assets/audio/animals/!")
 
 
 if __name__ == "__main__":
     main()
+

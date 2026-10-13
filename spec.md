@@ -32,30 +32,29 @@
   * Configuration: `prebuiltVoiceConfig: {"voiceName": "Puck"}`
   * Tone: Warm, playful, encouraging French male teacher (*instituteur*).
   * Folder: `assets/audio/voice_male/` (138 clips: 26 letters + 20 numbers × 3 utterance types).
-* **Score Animal Sounds (Result Screen Mascot Audio):** Both `Aoede` (Female) and `Puck` (Male)
-  * Engine: Gemini 3.8 Flash TTS (`model_name: "gemini-3.8-flash-tts"` via Vertex AI)
-  * Configuration: `prebuiltVoiceConfig: {"voiceName": "Aoede"}` and `{"voiceName": "Puck"}` matching the session's active voice.
-  * Audio Content: French onomatopoeia sound followed by an energetic motivational sentence.
+* **Score Animal Sounds (Result Screen Mascot Audio):** Curated voice persona per animal (`Puck` for deeper/roaring animals like bear, lion, dog, fox, frog; `Aoede` for lighter animals like cat, bunny, duck, sheep, fly, ant).
+  * Engine: Gemini 3.8 Flash TTS (`model_name: "gemini-3.8-flash-tts"` via Vertex AI).
+  * Direct Encoding: High-fidelity natural audio without silence removal filters, maintaining natural breathing, tone, and full sentence clarity.
+  * Audio Content: French animal sound followed immediately by an energetic motivational cheer.
   * On-Screen Subtitle: Displayed at the bottom of the result screen in very light grey (`#BCBCC8`), small font: `"<French Message> - <English Translation>"`.
-  * Trimming: Processed with FFmpeg silence removal (`silenceremove`) and gentle end fade.
-  * Folders: `assets/audio/animals/voice_female/` and `assets/audio/animals/voice_male/` (plus root `assets/audio/animals/` fallback).
+  * Folder: Stored directly in `assets/audio/animals/` (single clean folder, no gender subfolders).
 * **Audio Format:** High-quality MP3 at 192 kbps, 44.1 kHz mono (`-ar 44100 -b:a 192k`).
 
 ### 2.2 Score Mascot Audio & Subtitles Matrix
 
-| Score | Mascot | Spoken French Audio (MP3) | On-Screen Subtitle (Result Screen Bottom) | Audio File |
-| :---: | :--- | :--- | :--- | :--- |
-| **0** | **Fourmi** *(Ant)* | `"Hop, hop ! Courage, réessaie !"` | `Courage, réessaie ! - Don't give up, try again!` | `score_0_ant.mp3` |
-| **1** | **Mouche** *(Fly)* | `"Bzz, bzz ! Continue, tu peux le faire !"` | `Continue, tu peux le faire ! - Keep going, you can do it!` | `score_1_fly.mp3` |
-| **2** | **Grenouille** *(Frog)* | `"Coâ, coâ ! C'est un bon début !"` | `C'est un bon début ! - That's a good start!` | `score_2_frog.mp3` |
-| **3** | **Canard** *(Duck)* | `"Coin, coin ! Tu apprends vite !"` | `Tu apprends vite ! - You're learning fast!` | `score_3_duck.mp3` |
-| **4** | **Lapin** *(Bunny)* | `"Hop, hop ! Continue comme ça !"` | `Continue comme ça ! - Keep it up, you're doing great!` | `score_4_bunny.mp3` |
-| **5** | **Chat** *(Cat)* | `"Miaou, miaou ! C'est super !"` | `C'est super ! - That's wonderful!` | `score_5_cat.mp3` |
-| **6** | **Chien** *(Dog)* | `"Ouaf, ouaf ! Tu y es presque !"` | `Tu y es presque ! - You're getting there!` | `score_6_dog.mp3` |
-| **7** | **Renard** *(Fox)* | `"Yap, yap ! Bien joué, petit malin !"` | `Bien joué, petit malin ! - Well played, clever one!` | `score_7_fox.mp3` |
-| **8** | **Mouton** *(Sheep)* | `"Bêê, bêê ! Formidable !"` | `Formidable ! - Fantastic work!` | `score_8_sheep.mp3` |
-| **9** | **Lion** *(Lion)* | `"Rroarrr ! Très bien !"` | `Très bien ! - Very good!` | `score_9_lion.mp3` |
-| **10** | **Ours** *(Bear)* | `"Grroaar ! Parfait !"` | `Parfait ! - Perfect!` | `score_10_bear.mp3` |
+| Score | Mascot | Voice | Spoken French Audio (MP3) | On-Screen Subtitle (Result Screen Bottom) | Audio File |
+| :---: | :--- | :---: | :--- | :--- | :--- |
+| **0** | **Fourmi** *(Ant)* | `Aoede` | `"Hop, hop ! Courage, réessaie !"` | `Courage, réessaie ! - Don't give up, try again!` | `score_0_ant.mp3` |
+| **1** | **Mouche** *(Fly)* | `Aoede` | `"Bzz, bzz ! Continue, tu peux le faire !"` | `Continue, tu peux le faire ! - Keep going, you can do it!` | `score_1_fly.mp3` |
+| **2** | **Grenouille** *(Frog)* | `Puck` | `"Coâ, coâ ! C'est un bon début !"` | `C'est un bon début ! - That's a good start!` | `score_2_frog.mp3` |
+| **3** | **Canard** *(Duck)* | `Aoede` | `"Coin, coin ! Tu apprends vite !"` | `Tu apprends vite ! - You're learning fast!` | `score_3_duck.mp3` |
+| **4** | **Lapin** *(Bunny)* | `Aoede` | `"Hop, hop ! Continue comme ça !"` | `Continue comme ça ! - Keep it up, you're doing great!` | `score_4_bunny.mp3` |
+| **5** | **Chat** *(Cat)* | `Aoede` | `"Miaou, miaou ! C'est super !"` | `C'est super ! - That's wonderful!` | `score_5_cat.mp3` |
+| **6** | **Chien** *(Dog)* | `Puck` | `"Ouaf, ouaf ! Tu y es presque !"` | `Tu y es presque ! - You're getting there!` | `score_6_dog.mp3` |
+| **7** | **Renard** *(Fox)* | `Puck` | `"Yap, yap ! Bien joué, petit malin !"` | `Bien joué, petit malin ! - Well played, clever one!` | `score_7_fox.mp3` |
+| **8** | **Mouton** *(Sheep)* | `Aoede` | `"Bêê, bêê ! Formidable !"` | `Formidable ! - Fantastic work!` | `score_8_sheep.mp3` |
+| **9** | **Lion** *(Lion)* | `Puck` | `"Rroarrr ! Très bien !"` | `Très bien ! - Very good!` | `score_9_lion.mp3` |
+| **10** | **Ours** *(Bear)* | `Puck` | `"Grroaar ! Parfait !"` | `Parfait ! - Perfect!` | `score_10_bear.mp3` |
 
 ### 2.3 Emotion & Prompt Prompting Matrix
 Audio files are generated offline via an automated Python batch script. Prompts include delivery instructions to steer vocal expression:
