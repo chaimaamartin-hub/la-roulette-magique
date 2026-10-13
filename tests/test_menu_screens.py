@@ -32,6 +32,13 @@ def test_main_menu_button_clicks() -> None:
     event_outside = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": (10, 10)})
     assert menu.handle_event(event_outside) is None
 
+    # Render check
+    from src.font_manager import FontManager
+    surf = pygame.Surface((1280, 720))
+    fm = FontManager()
+    menu.render(surf, fm, mouse_pos=(100, 100))
+
+
 
 def test_config_screen_back_and_autosave() -> None:
     cfg = GameConfig(selected_symbols=["A", "B", "C", "D", "E", "F"])

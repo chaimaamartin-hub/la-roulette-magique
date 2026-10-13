@@ -74,9 +74,9 @@ class MainMenuScreen:
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
 
-        # Title: Les Cartes Magiques
-        title_font = fm.get_font("Segoe UI", max(36, int(64 * self.scale)), bold=True)
-        title_surf = title_font.render("Les Cartes Magiques", True, (20, 20, 25))
+        # Title: LES CARTES MAGIQUES
+        title_font = fm.get_title_font(max(36, int(64 * self.scale)))
+        title_surf = title_font.render("LES CARTES MAGIQUES", True, (20, 20, 25))
         title_rect = title_surf.get_rect(center=(self.w // 2, self.h // 2 - int(150 * self.scale)))
         surface.blit(title_surf, title_rect)
 

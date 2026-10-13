@@ -40,3 +40,20 @@ def test_font_manager_invalid_size() -> None:
 
     with pytest.raises(ValueError, match="CRITICAL: Font size must be positive"):
         fm.get_font("Segoe UI", -10)
+
+
+def test_get_title_font() -> None:
+    fm = FontManager()
+
+    # Happy path: Returns a valid pygame Font instance
+    title_font = fm.get_title_font(48)
+    assert isinstance(title_font, pygame.font.Font)
+
+    # Failure path 1: Non-positive size (0) raises ValueError
+    with pytest.raises(ValueError, match="CRITICAL: Font size must be positive"):
+        fm.get_title_font(0)
+
+    # Failure path 2: Negative size (-12) raises ValueError
+    with pytest.raises(ValueError, match="CRITICAL: Font size must be positive"):
+        fm.get_title_font(-12)
+

@@ -35,6 +35,17 @@ class FontManager:
     def get_ui_font(self, size: int, bold: bool = True) -> pygame.font.Font:
         return self.get_font("Segoe UI", size, bold=bold)
 
+    def get_title_font(self, size: int) -> pygame.font.Font:
+        if size <= 0:
+            raise ValueError(f"CRITICAL: Font size must be positive, got {size}.")
+        available = pygame.font.get_fonts()
+        for name in ["Bahnschrift", "Trebuchet MS", "Segoe UI"]:
+            # Match system font name (ignoring spaces and casing)
+            normalized = name.lower().replace(" ", "")
+            if normalized in available or name.lower() in available:
+                return self.get_font(name, size, bold=True)
+        return self.get_ui_font(size, bold=True)
+
     def get_card_font(self, card_index: int, size: int) -> pygame.font.Font:
         font_name = self.font_pool[card_index % len(self.font_pool)]
         return self.get_font(font_name, size, bold=True)
