@@ -1,0 +1,66 @@
+from dataclasses import dataclass, field
+import json
+from pathlib import Path
+import sys
+
+DEFAULT_LETTERS: list[str] = ["A", "O", "U", "I", "E"]
+DEFAULT_NUMBERS: list[str] = ["1", "2", "3", "4", "5", "6"]
+ALL_UPPERCASE: list[str] = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+ALL_LOWERCASE: list[str] = [chr(c) for c in range(ord("a"), ord("z") + 1)]
+ALL_NUMBERS: list[str] = [str(n) for n in range(1, 21)]
+
+MIN_SELECTED_SYMBOLS: int = 5
+
+
+@dataclass
+class GameConfig:
+    selected_symbols: list[str] = field(
+        default_factory=lambda: list(DEFAULT_LETTERS + DEFAULT_NUMBERS)
+    )
+
+    def validate(self) -> None:
+        if len(self.selected_symbols) < MIN_SELECTED_SYMBOLS:
+            raise ValueError(
+                f"CRITICAL: At least {MIN_SELECTED_SYMBOLS} symbols must be selected, "
+                f"got {len(self.selected_symbols)}."
+            )
+        valid_pool = set(ALL_UPPERCASE + ALL_LOWERCASE + ALL_NUMBERS)
+        for sym in self.selected_symbols:
+            if sym not in valid_pool:
+                raise ValueError(f"CRITICAL: Unknown symbol '{sym}' in selected_symbols.")
+
+
+def get_default_config_path(base_dir: Path | None = None) -> Path:
+    if base_dir is not None:
+        return base_dir / "config.json"
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "config.json"
+    return Path(__file__).resolve().parent.parent / "config.json"
+
+
+def load_config(config_path: Path | None = None) -> GameConfig:
+    path = config_path or get_default_config_path()
+    if not path.is_file():
+        cfg = GameConfig()
+        save_config(cfg, path)
+        return cfg
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        symbols = data.get("selected_symbols")
+        if not isinstance(symbols, list):
+            raise ValueError("CRITICAL: 'selected_symbols' must be a list in config.json.")
+        cfg = GameConfig(selected_symbols=[str(s) for s in symbols])
+        cfg.validate()
+        return cfg
+    except (json.JSONDecodeError, ValueError) as err:
+        raise ValueError(f"CRITICAL: Invalid configuration file at {path}: {err}") from err
+
+
+def save_config(cfg: GameConfig, config_path: Path | None = None) -> Path:
+    cfg.validate()
+    path = config_path or get_default_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"selected_symbols": cfg.selected_symbols}
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
