@@ -70,13 +70,16 @@ def draw_arrow_left_icon(
     render_unicode_symbol(surface, center, "←", size, color)
 
 
-def draw_progress_circles(
+def draw_progress_stars(
     surface: pygame.Surface,
     center_pos: tuple[int, int],
     round_results: list[bool],
     total_rounds: int = 10,
     radius: int = 16,
     spacing: int = 44,
+    filled_color: tuple[int, int, int] = (235, 165, 0),
+    empty_color: tuple[int, int, int] = (20, 20, 25),
+    unplayed_color: tuple[int, int, int] = (190, 190, 200),
 ) -> None:
     cx, cy = center_pos
     total_w = (total_rounds - 1) * spacing
@@ -87,11 +90,29 @@ def draw_progress_circles(
         x = start_x + i * spacing
         if i < len(round_results):
             if round_results[i]:
-                # Correct: Solid black circle ●
-                render_unicode_symbol(surface, (x, cy), "●", font_sz, (20, 20, 25))
+                # Correct round: Golden yellow filled star ★
+                render_unicode_symbol(surface, (x, cy), "★", font_sz, filled_color)
             else:
-                # Wrong initial attempt: Hollow circle ○
-                render_unicode_symbol(surface, (x, cy), "○", font_sz, (20, 20, 25))
+                # Wrong initial attempt: Empty star ☆
+                render_unicode_symbol(surface, (x, cy), "☆", font_sz, empty_color)
         else:
-            # Unplayed round: Grey hollow circle ○
-            render_unicode_symbol(surface, (x, cy), "○", font_sz, (190, 190, 200))
+            # Unplayed round: Grey empty star ☆
+            render_unicode_symbol(surface, (x, cy), "☆", font_sz, unplayed_color)
+
+
+def draw_progress_circles(
+    surface: pygame.Surface,
+    center_pos: tuple[int, int],
+    round_results: list[bool],
+    total_rounds: int = 10,
+    radius: int = 16,
+    spacing: int = 44,
+) -> None:
+    draw_progress_stars(
+        surface=surface,
+        center_pos=center_pos,
+        round_results=round_results,
+        total_rounds=total_rounds,
+        radius=radius,
+        spacing=spacing,
+    )

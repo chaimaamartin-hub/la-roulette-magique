@@ -11,7 +11,7 @@ from src.config import (
     save_config,
 )
 from src.font_manager import FontManager
-from src.ui_elements import UICheckbox, UIIconButton, draw_progress_circles
+from src.ui_elements import UICheckbox, UIIconButton, draw_progress_stars
 
 ScreenAction = Literal["MENU", "PLAY", "CONFIG", "SCORE", "QUIT"]
 
@@ -197,17 +197,18 @@ class ScoreScreen:
         center_x = self.w // 2
         center_y = self.h // 2
 
-        # 10 progress circles on top
+        # 10 progress stars on top
         circ_rad = max(10, int(18 * self.scale))
         circ_spacing = max(26, int(52 * self.scale))
         circ_y = center_y - int(190 * self.scale)
-        draw_progress_circles(
+        draw_progress_stars(
             surface=surface,
             center_pos=(center_x, circ_y),
             round_results=self.round_results,
             total_rounds=self.max_score,
             radius=circ_rad,
             spacing=circ_spacing,
+            filled_color=(235, 165, 0),
         )
 
         # Animal illustration representing the score

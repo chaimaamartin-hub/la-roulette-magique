@@ -45,12 +45,20 @@ def test_draw_progress_circles() -> None:
         draw_gear_icon,
         draw_play_icon,
         draw_progress_circles,
+        draw_progress_stars,
     )
 
     surf = pygame.Surface((500, 100))
     # 2 correct, 1 wrong, 7 unplayed
     results = [True, True, False]
     draw_progress_circles(surf, center_pos=(250, 50), round_results=results, total_rounds=10)
+    draw_progress_stars(
+        surf,
+        center_pos=(250, 50),
+        round_results=results,
+        total_rounds=10,
+        filled_color=(235, 165, 0),
+    )
 
     # Test all icon draw functions directly
     draw_play_icon(surf, (50, 50), 30, (0, 0, 0))

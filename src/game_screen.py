@@ -5,7 +5,7 @@ from src.audio_manager import AudioManager
 from src.card import Card
 from src.font_manager import FontManager
 from src.game_state import GameSession
-from src.ui_elements import UIIconButton, draw_progress_circles
+from src.ui_elements import UIIconButton, draw_progress_stars
 
 GamePhase = Literal["FLYING_IN", "WAITING_GUESS", "SOLVED_FEEDBACK", "FLYING_OUT"]
 
@@ -139,16 +139,17 @@ class GameScreen:
 
         self.btn_menu.render(surface, mouse_pos)
 
-        # 10 progress circles on top center (no text)
+        # 10 progress stars on top center (no text)
         circ_rad = max(8, int(15 * self.scale))
         circ_spacing = max(22, int(46 * self.scale))
-        draw_progress_circles(
+        draw_progress_stars(
             surface=surface,
             center_pos=(self.w // 2, int(45 * self.scale)),
             round_results=self.session.round_results,
             total_rounds=10,
             radius=circ_rad,
             spacing=circ_spacing,
+            filled_color=(235, 165, 0),
         )
 
         base_font_size = 110 if len(self.cards) <= 4 else 95

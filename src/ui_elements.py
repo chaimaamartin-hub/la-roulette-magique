@@ -7,6 +7,7 @@ from src.ui_icons import (
     draw_gear_icon,
     draw_play_icon,
     draw_progress_circles,
+    draw_progress_stars,
 )
 
 IconType = Literal["PLAY", "GEAR", "EXIT", "ARROW_LEFT"]
