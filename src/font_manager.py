@@ -39,7 +39,7 @@ class FontManager:
         if size <= 0:
             raise ValueError(f"CRITICAL: Font size must be positive, got {size}.")
         available = pygame.font.get_fonts()
-        for name in ["Bahnschrift", "Trebuchet MS", "Segoe UI"]:
+        for name in ["Trebuchet MS", "Segoe UI", "Bahnschrift"]:
             # Match system font name (ignoring spaces and casing)
             normalized = name.lower().replace(" ", "")
             if normalized in available or name.lower() in available:
@@ -56,14 +56,11 @@ class FontManager:
         return self.get_font(font_name, size, bold=True)
 
     def get_cap_center_offset(self, font: pygame.font.Font) -> float:
+        if font is None or not isinstance(font, pygame.font.Font):
+            raise TypeError("CRITICAL: font must be a pygame.font.Font instance.")
         ref_surf = font.render("H", True, (0, 0, 0))
-        arr = pygame.surfarray.pixels_alpha(ref_surf)
-        ys = [
-            y
-            for y in range(ref_surf.get_height())
-            if any(arr[x, y] > 0 for x in range(ref_surf.get_width()))
-        ]
-        if not ys:
+        bbox = ref_surf.get_bounding_rect()
+        if bbox.height == 0:
             return float(ref_surf.get_height() / 2.0)
-        return float((min(ys) + max(ys)) / 2.0)
+        return float((bbox.top + bbox.bottom - 1) / 2.0)
 

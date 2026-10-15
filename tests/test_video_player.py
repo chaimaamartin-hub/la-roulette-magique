@@ -68,7 +68,7 @@ def test_animal_video_player_invalid_dimensions_failure_path() -> None:
         AnimalVideoPlayer(video_path=video_path, target_height=200, target_width=-10)
 
 
-def test_animal_manager_video_detection() -> None:
+def test_animal_manager_video_detection(tmp_path: Path) -> None:
     mgr = AnimalManager()
     # Lion (score 9) has video
     assert mgr.has_video(9) is True
@@ -76,9 +76,10 @@ def test_animal_manager_video_detection() -> None:
     assert video_path is not None
     assert video_path.name == "score_9_lion.mp4"
 
-    # Ant (score 0) has no video yet
-    assert mgr.has_video(0) is False
-    assert mgr.get_video_path(0) is None
+    # Manager with empty directory has no video
+    empty_mgr = AnimalManager(videos_dir=tmp_path)
+    assert empty_mgr.has_video(0) is False
+    assert empty_mgr.get_video_path(0) is None
 
     # Strict Fail fast validation
     with pytest.raises(ValueError):
@@ -107,4 +108,33 @@ def test_score_screen_video_centering() -> None:
     fm = FontManager()
     screen.render(surf, fm, mouse_pos=(0, 0))
     screen.close()
+
+
+def test_probe_video_dimensions_caching_happy_path() -> None:
+    from src.video_player import probe_video_dimensions, find_ffmpeg_executable, _DIMENSIONS_CACHE
+
+    ffmpeg_bin = find_ffmpeg_executable()
+    video_path = Path(__file__).resolve().parent.parent / "assets" / "videos" / "animals" / "score_9_lion.mp4"
+    if not video_path.is_file():
+        pytest.skip("score_9_lion.mp4 not found")
+
+    dims = probe_video_dimensions(video_path)
+    assert dims == (1280, 720)
+    assert video_path in _DIMENSIONS_CACHE
+
+    # Second call uses cache
+    dims2 = probe_video_dimensions(video_path)
+    assert dims2 == dims
+
+
+def test_probe_video_dimensions_validation_failure_paths() -> None:
+    from src.video_player import probe_video_dimensions
+
+    with pytest.raises(TypeError, match="CRITICAL: video_path must be a Path"):
+        probe_video_dimensions("invalid_path")  # type: ignore[arg-type]
+
+    with pytest.raises(FileNotFoundError, match="CRITICAL: Video file not found"):
+        probe_video_dimensions(Path("non_existent_video.mp4"))
+
+
 

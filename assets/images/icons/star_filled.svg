@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF275" />
+      <stop offset="35%" stop-color="#FFCE00" />
+      <stop offset="100%" stop-color="#FF8A00" />
+    </linearGradient>
+    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+  <polygon points="50,6 63,34 94,39 71,62 77,93 50,78 23,93 29,62 6,39 37,34"
+           fill="url(#goldGrad)"
+           stroke="#D87800"
+           stroke-width="5"
+           stroke-linejoin="round"
+           stroke-linecap="round"/>
+  <polygon points="50,11 61,35 88,39 68,59 50,48 32,59 12,39 39,35"
+           fill="url(#highlightGrad)"/>
+</svg>

@@ -41,10 +41,18 @@ python main.py --windowed --width 1280 --height 720
 ```
 
 ### 4. Compilation en exécutable autonome (.exe)
+
+> [!IMPORTANT]
+> **Consigne pour l'agent IA :** Ne **PAS** recompiler automatiquement l'exécutable après chaque modification. La compilation complète prend du temps et est inutile lors de retouches mineures ou de sessions de travail itératives.
+> * Recompiler uniquement si l'utilisateur le demande explicitement.
+> * En fin de modification majeure ou de version stable, l'agent peut demander à l'utilisateur s'il souhaite recompiler l'exécutable.
+> * L'agent doit s'abstenir de recompiler s'il s'agit de retouches mineures ou s'il sait qu'une série de changements est en cours.
+
+Pour compiler manuellement ou sur demande explicite :
 ```bash
-pyinstaller --noconfirm --onedir --windowed --name "LaRouletteMagique" --add-data "assets;assets" main.py
+pyinstaller --noconfirm LaRouletteMagique.spec
 ```
-L'exécutable autonome est généré dans `dist/LaRouletteMagique/LaRouletteMagique.exe`.
+L'exécutable autonome est généré dans `dist/les_cartes_magiques.exe`.
 
 ## 🧪 Tests
 Exécuter la suite complète de tests unitaires :

@@ -17,11 +17,13 @@ class GameScreen:
         screen_h: int,
         session: GameSession,
         audio_manager: AudioManager,
+        video_preloader: object | None = None,
     ) -> None:
         self.w: int = screen_w
         self.h: int = screen_h
         self.session: GameSession = session
         self.am: AudioManager = audio_manager
+        self.preloader: object | None = video_preloader
 
         self.cards: list[Card] = []
         self.phase: GamePhase = "FLYING_IN"
@@ -29,6 +31,7 @@ class GameScreen:
         self.has_played_question: bool = False
 
         self.scale: float = min(screen_w / 1920.0, screen_h / 1080.0)
+        self.animal_sz: int = max(320, int(520 * self.scale))
         btn_sz = max(44, int(64 * self.scale))
         self.btn_menu = UIIconButton(
             rect=pygame.Rect(int(40 * self.scale), int(30 * self.scale), btn_sz, btn_sz),
@@ -73,6 +76,10 @@ class GameScreen:
                 Card(symbol=sym, index=i, target_rect=r, screen_width=self.w, entry_delay=0.08)
             )
 
+        if self.session.current_round_num == 10 and self.preloader is not None:
+            if hasattr(self.preloader, "preload_video"):
+                self.preloader.preload_video(min(10, self.session.score + 1), self.animal_sz)
+
     def handle_event(self, event: pygame.event.Event) -> Literal["MENU", "SCORE"] | None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
@@ -102,6 +109,13 @@ class GameScreen:
             self.am.play_sfx_wrong()
             card.trigger_red_flash()
             self.am.play_voice(card.symbol, "ans_neg", prompt_mode=self.session.current_round.prompt_mode)
+
+        if self.session.current_round_num == 10 and self.preloader is not None:
+            if hasattr(self.preloader, "preload_video"):
+                self.preloader.preload_video(self.session.score, self.animal_sz)
+            if hasattr(self.preloader, "cleanup_unused"):
+                self.preloader.cleanup_unused(keep_score=self.session.score)
+
 
     def update(self, dt: float) -> Literal["SCORE"] | None:
         self.phase_time += dt
@@ -163,5 +177,10 @@ class GameScreen:
         round_font = fm.get_round_font(self.session.current_round_num, card_font_size)
         cap_offset = fm.get_cap_center_offset(round_font)
 
-        for card in self.cards:
+        # Render cards with active/correct cards layered on top
+        sorted_cards = sorted(
+            self.cards,
+            key=lambda c: 2 if getattr(c, "is_correct", False) else (1 if mouse_pos and c.is_clicked(mouse_pos) else 0),
+        )
+        for card in sorted_cards:
             card.render(surface, round_font, cap_offset=cap_offset, mouse_pos=mouse_pos)

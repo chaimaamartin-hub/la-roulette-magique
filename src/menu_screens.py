@@ -1,3 +1,4 @@
+import time
 from typing import Literal
 import pygame
 
@@ -59,6 +60,8 @@ class MainMenuScreen:
             border_color=(20, 20, 25),
             border_width=3,
         )
+        self._cached_title_surf: pygame.Surface | None = None
+        self._cached_title_scale: float = 0.0
 
     def handle_event(self, event: pygame.event.Event) -> ScreenAction | None:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -74,11 +77,20 @@ class MainMenuScreen:
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
 
-        # Title: LES CARTES MAGIQUES (enlarged by 20%)
-        title_font = fm.get_title_font(max(44, int(77 * self.scale)))
-        title_surf = title_font.render("LES CARTES MAGIQUES", True, (20, 20, 25))
-        title_rect = title_surf.get_rect(center=(self.w // 2, self.h // 2 - int(160 * self.scale)))
-        surface.blit(title_surf, title_rect)
+        # Title: LES CARTES MAGIQUES with 2x supersampled anti-aliasing
+        if self._cached_title_surf is None or self._cached_title_scale != self.scale:
+            base_sz = max(44, int(77 * self.scale))
+            title_font_2x = fm.get_title_font(base_sz * 2)
+            raw_title = title_font_2x.render("LES CARTES MAGIQUES", True, (20, 20, 25))
+            target_w = max(1, raw_title.get_width() // 2)
+            target_h = max(1, raw_title.get_height() // 2)
+            self._cached_title_surf = pygame.transform.smoothscale(raw_title, (target_w, target_h))
+            self._cached_title_scale = self.scale
+
+        title_rect = self._cached_title_surf.get_rect(
+            center=(self.w // 2, self.h // 2 - int(160 * self.scale))
+        )
+        surface.blit(self._cached_title_surf, title_rect)
 
         self.btn_play.render(surface, mouse_pos)
         self.btn_config.render(surface, mouse_pos)
@@ -124,6 +136,13 @@ class ConfigScreen:
             checked=self.config.ask_letter_sounds,
         )
 
+        self.error_message: str = ""
+        self.error_hide_time: float = 0.0
+
+    def show_error(self, message: str, duration: float = 2.5) -> None:
+        self.error_message = message
+        self.error_hide_time = time.time() + duration
+
     def _build_grid(self) -> None:
         self.checkboxes.clear()
         selected_set = set(self.config.selected_symbols)
@@ -151,6 +170,7 @@ class ConfigScreen:
 
             if self.btn_mode_names.is_clicked(pos):
                 if self.btn_mode_names.checked and not self.btn_mode_sounds.checked:
+                    self.show_error("Choisis au moins un mode de jeu !")
                     return None
                 self.btn_mode_names.toggle()
                 self.config.ask_letter_names = self.btn_mode_names.checked
@@ -159,6 +179,7 @@ class ConfigScreen:
 
             if self.btn_mode_sounds.is_clicked(pos):
                 if self.btn_mode_sounds.checked and not self.btn_mode_names.checked:
+                    self.show_error("Choisis au moins un mode de jeu !")
                     return None
                 self.btn_mode_sounds.toggle()
                 self.config.ask_letter_sounds = self.btn_mode_sounds.checked
@@ -170,6 +191,7 @@ class ConfigScreen:
                     # Enforce minimum active symbols
                     currently_checked = [b.label for b in self.checkboxes if b.checked]
                     if box.checked and len(currently_checked) <= MIN_SELECTED_SYMBOLS:
+                        self.show_error(f"Choisis au moins {MIN_SELECTED_SYMBOLS} lettres ou chiffres !")
                         return None
 
                     box.toggle()
@@ -191,6 +213,17 @@ class ConfigScreen:
         mode_font = fm.get_font("Segoe UI", max(13, int(20 * self.scale)), bold=True)
         self.btn_mode_names.render(surface, mode_font, mouse_pos)
         self.btn_mode_sounds.render(surface, mode_font, mouse_pos)
+
+        now = time.time()
+        if now < self.error_hide_time and self.error_message:
+            rem = self.error_hide_time - now
+            alpha = min(255, int(255 * (rem / 0.4))) if rem < 0.4 else 255
+            err_font = fm.get_font("Segoe UI", max(14, int(20 * self.scale)), bold=True)
+            txt_surf = err_font.render(self.error_message, True, (215, 45, 45))
+            if alpha < 255:
+                txt_surf.set_alpha(alpha)
+            txt_rect = txt_surf.get_rect(center=(self.w // 2, self.h // 2 + int(215 * self.scale)))
+            surface.blit(txt_surf, txt_rect)
 
 
 from src.score_screen import ScoreScreen

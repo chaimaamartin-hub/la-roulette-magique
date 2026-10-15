@@ -17,6 +17,7 @@ if sys.platform == "win32":
 
 os.environ["SDL_RENDER_SCALE_QUALITY"] = "2"
 
+from src.animal_manager import AnimalManager
 from src.audio_manager import AudioManager
 from src.config import GameConfig, load_config
 from src.font_manager import FontManager
@@ -24,6 +25,7 @@ from src.game_screen import GameScreen
 from src.game_state import GameSession
 from src.menu_screens import ConfigScreen, MainMenuScreen, ScoreScreen
 from src.ui_icons import init_hand_cursor
+from src.video_preloader import VideoPreloader
 
 SCREEN_WIDTH: int = 1920
 SCREEN_HEIGHT: int = 1080
@@ -79,6 +81,10 @@ def run_app(argv: list[str] | None = None) -> int:
     fm = FontManager()
     am = AudioManager()
     config: GameConfig = load_config()
+    animal_mgr = AnimalManager()
+    video_preloader = VideoPreloader(animal_mgr)
+    target_scale = min(win_w / 1920.0, win_h / 1080.0)
+    video_preloader.start_warmup(max(320, int(520 * target_scale)))
 
     current_state: CurrentState = "MENU"
     menu_screen = MainMenuScreen(win_w, win_h)
@@ -141,7 +147,7 @@ def run_app(argv: list[str] | None = None) -> int:
                     ask_letter_names=config.ask_letter_names,
                     ask_letter_sounds=config.ask_letter_sounds,
                 )
-                game_screen = GameScreen(win_w, win_h, session, am)
+                game_screen = GameScreen(win_w, win_h, session, am, video_preloader=video_preloader)
                 current_state = "PLAY"
             elif action == "SCORE" and game_screen is not None:
                 score_screen = ScoreScreen(
@@ -149,7 +155,9 @@ def run_app(argv: list[str] | None = None) -> int:
                     win_h,
                     game_screen.session.score,
                     round_results=game_screen.session.round_results,
+                    animal_mgr=animal_mgr,
                     audio_mgr=am,
+                    video_preloader=video_preloader,
                 )
                 current_state = "SCORE"
 
@@ -162,7 +170,9 @@ def run_app(argv: list[str] | None = None) -> int:
                     win_h,
                     game_screen.session.score,
                     round_results=game_screen.session.round_results,
+                    animal_mgr=animal_mgr,
                     audio_mgr=am,
+                    video_preloader=video_preloader,
                 )
                 current_state = "SCORE"
         elif current_state == "SCORE" and score_screen is not None:
@@ -180,6 +190,7 @@ def run_app(argv: list[str] | None = None) -> int:
 
         pygame.display.flip()
 
+    video_preloader.close_all()
     am.stop_all()
     pygame.quit()
     return 0

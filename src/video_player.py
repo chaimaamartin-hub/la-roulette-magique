@@ -1,7 +1,9 @@
 from pathlib import Path
+import queue
 import shutil
 import subprocess
 import sys
+import threading
 import pygame
 
 
@@ -23,33 +25,43 @@ def find_ffmpeg_executable() -> Path:
     if which_ffmpeg:
         return Path(which_ffmpeg)
 
-    # 4. imageio_ffmpeg binary if present
-    try:
-        import imageio_ffmpeg
-
-        ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
-        if ffmpeg_bin and Path(ffmpeg_bin).is_file():
-            return Path(ffmpeg_bin)
-    except ImportError:
-        pass
-
     raise FileNotFoundError("CRITICAL: ffmpeg executable is required for video playback but was not found.")
 
 
-def probe_video_dimensions(ffmpeg_bin: Path, video_path: Path) -> tuple[int, int]:
-    creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+from src.wmf_reader import WMFVideoReader, _COLOR_LEVEL_TABLE
+
+_DIMENSIONS_CACHE: dict[Path, tuple[int, int]] = {}
+
+
+def probe_video_dimensions(video_path: Path, ffmpeg_bin: Path | None = None) -> tuple[int, int]:
+    if not isinstance(video_path, Path):
+        raise TypeError(f"CRITICAL: video_path must be a Path, got {type(video_path).__name__}")
+    if not video_path.is_file():
+        raise FileNotFoundError(f"CRITICAL: Video file not found at {video_path}")
+    if video_path in _DIMENSIONS_CACHE:
+        return _DIMENSIONS_CACHE[video_path]
+
+    if sys.platform == "win32":
+        reader = WMFVideoReader(video_path)
+        dims = reader.get_dimensions()
+        reader.close()
+        _DIMENSIONS_CACHE[video_path] = dims
+        return dims
+
+    bin_path = ffmpeg_bin if ffmpeg_bin is not None else find_ffmpeg_executable()
     res = subprocess.run(
-        [str(ffmpeg_bin), "-i", str(video_path)],
+        [str(bin_path), "-i", str(video_path)],
         capture_output=True,
         text=True,
-        creationflags=creationflags,
     )
     import re
 
     m = re.search(r"Stream.*Video:.*,\s*(\d+)x(\d+)", res.stderr)
     if not m:
         raise RuntimeError(f"CRITICAL: Failed to probe video dimensions from {video_path}")
-    return int(m.group(1)), int(m.group(2))
+    dims = (int(m.group(1)), int(m.group(2)))
+    _DIMENSIONS_CACHE[video_path] = dims
+    return dims
 
 
 class AnimalVideoPlayer:
@@ -59,6 +71,7 @@ class AnimalVideoPlayer:
         target_height: int,
         target_width: int | None = None,
         fps: int = 24,
+        initial_surface: pygame.Surface | None = None,
     ) -> None:
         if not isinstance(video_path, Path):
             raise TypeError(f"CRITICAL: video_path must be a Path, got {type(video_path).__name__}")
@@ -74,29 +87,66 @@ class AnimalVideoPlayer:
         self.video_path: Path = video_path
         self.fps: int = fps
         self.frame_interval: float = 1.0 / float(fps)
-        self.ffmpeg_bin: Path = find_ffmpeg_executable()
+        self.elapsed: float = 0.0
+        self.is_finished: bool = False
+        self._stop_event: threading.Event = threading.Event()
+        self._eof: bool = False
+        self._frame_queue: queue.Queue[pygame.Surface] = queue.Queue(maxsize=30)
 
         if target_width is not None:
             self.width: int = (target_width // 2) * 2
             self.height: int = (target_height // 2) * 2
         else:
-            orig_w, orig_h = probe_video_dimensions(self.ffmpeg_bin, self.video_path)
+            orig_w, orig_h = probe_video_dimensions(self.video_path)
             self.height = (target_height // 2) * 2
             calc_w = int(round(self.height * (orig_w / float(orig_h))))
             self.width = (calc_w // 2) * 2
 
-        self.frame_bytes: int = self.width * self.height * 3
-        self.elapsed: float = 0.0
-        self.is_finished: bool = False
+        self.wmf_reader: WMFVideoReader | None = None
+        self.process: subprocess.Popen[bytes] | None = None
+        if sys.platform == "win32":
+            self.wmf_reader = WMFVideoReader(self.video_path)
+            first_frame: pygame.Surface | None = initial_surface
+            if first_frame is None:
+                decoded = self.wmf_reader.read_frame_surface()
+                if decoded is None:
+                    self.close()
+                    raise RuntimeError(f"CRITICAL: Failed to decode initial video frame from {self.video_path}")
+                first_frame = pygame.transform.smoothscale(decoded, (self.width, self.height))
+                first_frame.get_buffer().write(bytes(first_frame.get_buffer()).translate(_COLOR_LEVEL_TABLE))
+            self.current_surface: pygame.Surface = first_frame
+            self._reader_thread: threading.Thread = threading.Thread(target=self._wmf_worker, daemon=True)
+            self._reader_thread.start()
+        else:
+            self.ffmpeg_bin: Path = find_ffmpeg_executable()
+            self._init_ffmpeg_fallback(initial_surface)
 
-        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    def _wmf_worker(self) -> None:
+        while not self._stop_event.is_set():
+            if self.wmf_reader is None:
+                break
+            raw_surf = self.wmf_reader.read_frame_surface()
+            if raw_surf is None:
+                self._eof = True
+                break
+            scaled = pygame.transform.smoothscale(raw_surf, (self.width, self.height))
+            scaled.get_buffer().write(bytes(scaled.get_buffer()).translate(_COLOR_LEVEL_TABLE))
+            while not self._stop_event.is_set():
+                try:
+                    self._frame_queue.put(scaled, timeout=0.05)
+                    break
+                except queue.Full:
+                    continue
+
+    def _init_ffmpeg_fallback(self, initial_surface: pygame.Surface | None) -> None:
+        self.frame_bytes: int = self.width * self.height * 3
         cmd = [
             str(self.ffmpeg_bin),
             "-i",
             str(self.video_path),
-            "-an",  # Audio disabled: volume strictly 0
+            "-an",
             "-vf",
-            f"fps={self.fps},scale={self.width}:{self.height}:force_original_aspect_ratio=decrease,pad={self.width}:{self.height}:(ow-iw)/2:(oh-ih)/2:color=white,colorlevels=rimax=245/255:gimax=245/255:bimax=245/255",
+            f"fps={self.fps},scale={self.width}:{self.height}:force_original_aspect_ratio=decrease,pad={self.width}:{self.height}:(ow-iw)/2:(oh-ih)/2:color=white",
             "-f",
             "image2pipe",
             "-pix_fmt",
@@ -105,47 +155,42 @@ class AnimalVideoPlayer:
             "rawvideo",
             "-",
         ]
-
-        self.process: subprocess.Popen[bytes] | None = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            creationflags=creationflags,
-        )
-
+        self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         if self.process.stdout is None:
             self.close()
             raise RuntimeError("CRITICAL: Video process stdout is None")
-
-        raw_frame = self.process.stdout.read(self.frame_bytes)
-        if len(raw_frame) != self.frame_bytes:
-            self.close()
-            raise RuntimeError(f"CRITICAL: Failed to decode initial video frame from {self.video_path}")
-
-        self.current_surface: pygame.Surface = pygame.image.frombuffer(
-            raw_frame, (self.width, self.height), "RGB"
-        )
+        if initial_surface is not None:
+            self.current_surface = initial_surface
+        else:
+            raw = self.process.stdout.read(self.frame_bytes)
+            if len(raw) != self.frame_bytes:
+                self.close()
+                raise RuntimeError(f"CRITICAL: Failed to decode initial frame from {self.video_path}")
+            self.current_surface = pygame.image.frombuffer(raw, (self.width, self.height), "RGB")
 
     def update(self, dt: float) -> None:
-        if self.process is None or self.process.stdout is None or self.is_finished:
+        if self.is_finished:
             return
 
         self.elapsed += dt
         while self.elapsed >= self.frame_interval:
             self.elapsed -= self.frame_interval
-            raw_frame = self.process.stdout.read(self.frame_bytes)
-            if len(raw_frame) == self.frame_bytes:
-                self.current_surface = pygame.image.frombuffer(
-                    raw_frame, (self.width, self.height), "RGB"
-                )
-            else:
-                self.is_finished = True
+            try:
+                self.current_surface = self._frame_queue.get_nowait()
+            except queue.Empty:
+                if self._eof:
+                    self.is_finished = True
                 break
 
     def get_current_frame(self) -> pygame.Surface:
         return self.current_surface
 
     def close(self) -> None:
+        if hasattr(self, "_stop_event"):
+            self._stop_event.set()
+        if getattr(self, "wmf_reader", None) is not None:
+            self.wmf_reader.close()
+            self.wmf_reader = None
         if getattr(self, "process", None) is not None:
             try:
                 self.process.kill()
@@ -155,3 +200,5 @@ class AnimalVideoPlayer:
 
     def __del__(self) -> None:
         self.close()
+
+

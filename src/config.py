@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -35,22 +36,32 @@ class GameConfig:
             if sym not in valid_pool:
                 raise ValueError(f"CRITICAL: Unknown symbol '{sym}' in selected_symbols.")
 
+def get_user_config_dir() -> Path:
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
+        return base / "LaRouletteMagique"
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "LaRouletteMagique"
+    else:
+        xdg = os.environ.get("XDG_CONFIG_HOME")
+        base = Path(xdg) if xdg else Path.home() / ".config"
+        return base / "LaRouletteMagique"
 
-def get_default_config_path(base_dir: Path | None = None) -> Path:
-    if base_dir is not None:
-        return base_dir / "config.json"
+
+def get_legacy_config_path() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent / "config.json"
     return Path(__file__).resolve().parent.parent / "config.json"
 
 
-def load_config(config_path: Path | None = None) -> GameConfig:
-    path = config_path or get_default_config_path()
-    if not path.is_file():
-        cfg = GameConfig()
-        save_config(cfg, path)
-        return cfg
+def get_default_config_path(base_dir: Path | None = None) -> Path:
+    if base_dir is not None:
+        return base_dir / "config.json"
+    return get_user_config_dir() / "config.json"
 
+
+def _read_config_file(path: Path) -> GameConfig:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         symbols = data.get("selected_symbols")
@@ -67,6 +78,24 @@ def load_config(config_path: Path | None = None) -> GameConfig:
         return cfg
     except (json.JSONDecodeError, ValueError) as err:
         raise ValueError(f"CRITICAL: Invalid configuration file at {path}: {err}") from err
+
+
+def load_config(config_path: Path | None = None) -> GameConfig:
+    path = config_path or get_default_config_path()
+    if not path.is_file():
+        # Check for legacy config file to migrate settings forward
+        if config_path is None:
+            legacy_path = get_legacy_config_path()
+            if legacy_path.is_file() and legacy_path.resolve() != path.resolve():
+                cfg = _read_config_file(legacy_path)
+                save_config(cfg, path)
+                return cfg
+
+        cfg = GameConfig()
+        save_config(cfg, path)
+        return cfg
+
+    return _read_config_file(path)
 
 
 def save_config(cfg: GameConfig, config_path: Path | None = None) -> Path:

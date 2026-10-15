@@ -57,3 +57,26 @@ def test_get_title_font() -> None:
     with pytest.raises(ValueError, match="CRITICAL: Font size must be positive"):
         fm.get_title_font(-12)
 
+
+def test_get_cap_center_offset_happy_path() -> None:
+    fm = FontManager()
+    font = fm.get_font("Segoe UI", 48, bold=True)
+
+    # 1 Happy path: Computes valid center offset without numpy / surfarray
+    offset = fm.get_cap_center_offset(font)
+    assert isinstance(offset, float)
+    assert offset > 0.0
+
+
+def test_get_cap_center_offset_invalid_font_failure_paths() -> None:
+    fm = FontManager()
+
+    # 2 Failure path 1: None font raises TypeError
+    with pytest.raises(TypeError, match="CRITICAL: font must be a pygame.font.Font instance"):
+        fm.get_cap_center_offset(None)  # type: ignore[arg-type]
+
+    # 2 Failure path 2: Wrong type raises TypeError
+    with pytest.raises(TypeError, match="CRITICAL: font must be a pygame.font.Font instance"):
+        fm.get_cap_center_offset("not_a_font")  # type: ignore[arg-type]
+
+

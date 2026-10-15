@@ -51,14 +51,91 @@ def test_load_config_corrupt_json(tmp_path: Path) -> None:
         load_config(config_file)
 
 
-def test_get_default_config_path_frozen(monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.config import get_default_config_path
+def test_get_user_config_dir_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import get_user_config_dir
+
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", "C:/MockAppData/Roaming")
+    res = get_user_config_dir()
+    assert res == Path("C:/MockAppData/Roaming/LaRouletteMagique")
+
+
+def test_get_user_config_dir_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import get_user_config_dir
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    res = get_user_config_dir()
+    assert res == Path.home() / "Library" / "Application Support" / "LaRouletteMagique"
+
+
+def test_get_user_config_dir_linux(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import get_user_config_dir
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/mock/xdg/config")
+    res = get_user_config_dir()
+    assert res == Path("/mock/xdg/config/LaRouletteMagique")
+
+
+def test_get_legacy_config_path_frozen(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.config import get_legacy_config_path
+
     fake_exe = "C:/games/app.exe"
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", fake_exe, raising=False)
 
-    resolved = get_default_config_path()
+    resolved = get_legacy_config_path()
     assert resolved == Path("C:/games/config.json")
+
+
+def test_load_config_migrates_legacy_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import src.config as config_mod
+
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir(parents=True)
+    legacy_file = legacy_dir / "config.json"
+    legacy_cfg = GameConfig(
+        selected_symbols=["A", "B", "C", "D", "E"],
+        ask_letter_names=False,
+        ask_letter_sounds=True,
+    )
+    save_config(legacy_cfg, legacy_file)
+
+    target_file = tmp_path / "appdata" / "LaRouletteMagique" / "config.json"
+
+    monkeypatch.setattr(config_mod, "get_default_config_path", lambda: target_file)
+    monkeypatch.setattr(config_mod, "get_legacy_config_path", lambda: legacy_file)
+
+    loaded = config_mod.load_config()
+    assert loaded.selected_symbols == ["A", "B", "C", "D", "E"]
+    assert not loaded.ask_letter_names
+    assert loaded.ask_letter_sounds
+    assert target_file.is_file()
+
+
+def test_load_config_migration_corrupt_legacy_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import src.config as config_mod
+
+    legacy_file = tmp_path / "legacy" / "config.json"
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text("{bad json", encoding="utf-8")
+
+    target_file = tmp_path / "appdata" / "LaRouletteMagique" / "config.json"
+
+    monkeypatch.setattr(config_mod, "get_default_config_path", lambda: target_file)
+    monkeypatch.setattr(config_mod, "get_legacy_config_path", lambda: legacy_file)
+
+    with pytest.raises(ValueError, match="CRITICAL: Invalid configuration file"):
+        config_mod.load_config()
+
+
+def test_load_config_non_list_symbols_raises(tmp_path: Path) -> None:
+    config_file = tmp_path / "invalid_type.json"
+    config_file.write_text('{"selected_symbols": "not-a-list"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="CRITICAL: 'selected_symbols' must be a list"):
+        load_config(config_file)
 
 
 def test_config_prompt_modes_validation() -> None:

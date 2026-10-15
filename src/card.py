@@ -1,4 +1,5 @@
 import colorsys
+import math
 from typing import Literal
 import pygame
 
@@ -32,7 +33,9 @@ class Card:
 
         self.state: AnimationState = "FLYING_IN"
         self.is_wrong: bool = False
+        self.is_correct: bool = False
         self.state_time: float = 0.0
+        self.correct_anim_time: float = 0.0
         self.fly_in_duration: float = 0.5
         self.fly_out_duration: float = 0.5
         self.rainbow_duration: float = 0.8
@@ -40,6 +43,8 @@ class Card:
 
     def update(self, dt: float) -> None:
         self.state_time += dt
+        if self.is_correct:
+            self.correct_anim_time += dt
 
         if self.state == "FLYING_IN":
             if self.state_time >= self.entry_delay:
@@ -75,8 +80,10 @@ class Card:
                 self.state_time = 0.0
 
     def trigger_rainbow(self) -> None:
+        self.is_correct = True
         self.state = "RAINBOW_FLASH"
         self.state_time = 0.0
+        self.correct_anim_time = 0.0
 
     def trigger_red_flash(self) -> None:
         self.is_wrong = True
@@ -93,7 +100,10 @@ class Card:
     def is_clicked(self, pos: tuple[int, int]) -> bool:
         if self.is_wrong or self.state not in ("IDLE", "RED_FLASH"):
             return False
-        return self.get_current_rect().collidepoint(pos)
+        rect = self.get_current_rect()
+        raise_amount = max(5, min(10, self.height // 26))
+        hit_rect = pygame.Rect(rect.x, rect.y - raise_amount, rect.width, rect.height + raise_amount)
+        return hit_rect.collidepoint(pos)
 
     def render(
         self,
@@ -103,13 +113,35 @@ class Card:
         mouse_pos: tuple[int, int] | None = None,
     ) -> None:
         rect = self.get_current_rect()
-        is_hovered = mouse_pos is not None and rect.collidepoint(mouse_pos)
+        scale = 1.0
+        if self.is_correct:
+            if self.state == "RAINBOW_FLASH":
+                t = min(1.0, self.state_time / 0.15)
+                scale = 1.0 + 0.10 * (1.0 - (1.0 - t) ** 3)
+            elif self.state == "IDLE":
+                scale = 1.06 + 0.02 * math.sin(self.correct_anim_time * 4.0)
+            elif self.state == "FLYING_OUT":
+                scale = 1.10
+
+        raise_amount = max(5, min(10, self.height // 26))
+        hit_rect = pygame.Rect(rect.x, rect.y - raise_amount, rect.width, rect.height + raise_amount)
+        is_hovered = mouse_pos is not None and hit_rect.collidepoint(mouse_pos)
+        is_raised = is_hovered and self.state in ("IDLE", "FLYING_IN") and not self.is_wrong and not self.is_correct
+        base_rect = rect.move(0, -raise_amount) if is_raised else rect
+
+        if scale > 1.001:
+            extra_w = int(round(rect.width * (scale - 1.0)))
+            extra_h = int(round(rect.height * (scale - 1.0)))
+            draw_rect = base_rect.inflate(extra_w, extra_h)
+        else:
+            draw_rect = base_rect
+
         if self.is_wrong and self.state != "RED_FLASH":
             bg_color = (235, 235, 238)
             border_color = (205, 205, 212)
             border_width = 3
             text_color = (170, 170, 175)
-        elif is_hovered and self.state in ("IDLE", "FLYING_IN"):
+        elif is_hovered and self.state in ("IDLE", "FLYING_IN") and not self.is_correct:
             bg_color = (255, 252, 220)  # Very light yellow hover
             border_color = (220, 210, 160)
             border_width = 4
@@ -142,20 +174,70 @@ class Card:
 
         elif self.state == "RAINBOW_FLASH":
             hue = (self.state_time / self.rainbow_duration) % 1.0
-            rgb_f = colorsys.hsv_to_rgb(hue, 0.9, 0.95)
+            rgb_f = colorsys.hsv_to_rgb(hue, 0.88, 0.95)
             rainbow_col = (int(rgb_f[0] * 255), int(rgb_f[1] * 255), int(rgb_f[2] * 255))
+            # Very light pastel background tint
+            bg_f = colorsys.hsv_to_rgb(hue, 0.18, 1.0)
+            bg_color = (int(bg_f[0] * 255), int(bg_f[1] * 255), int(bg_f[2] * 255))
             border_color = rainbow_col
-            border_width = 8
+            border_width = 7
             text_color = rainbow_col
 
-        radius = min(28, rect.width // 6)
-        pygame.draw.rect(surface, bg_color, rect, border_radius=radius)
-        pygame.draw.rect(surface, border_color, rect, width=border_width, border_radius=radius)
+        elif self.is_correct:
+            # Ongoing gentle pastel animation after initial rainbow flash
+            hue = (self.correct_anim_time * 0.20) % 1.0
+            pulse = 0.5 + 0.5 * math.sin(self.correct_anim_time * 3.0)
+            sat = 0.12 + 0.06 * pulse
+            bg_f = colorsys.hsv_to_rgb(hue, sat, 1.0)
+            bg_color = (int(bg_f[0] * 255), int(bg_f[1] * 255), int(bg_f[2] * 255))
+
+            border_f = colorsys.hsv_to_rgb(hue, 0.50, 0.88)
+            border_color = (int(border_f[0] * 255), int(border_f[1] * 255), int(border_f[2] * 255))
+            border_width = 5
+            text_color = (30, 30, 35)
+
+        radius = min(28, draw_rect.width // 6)
+
+        # Drop shadow beneath the card
+        shadow_pad = 16
+        shadow_surf = pygame.Surface(
+            (draw_rect.width + shadow_pad * 2, draw_rect.height + shadow_pad * 2 + 16),
+            pygame.SRCALPHA,
+        )
+        if self.is_correct:
+            sy, a1, a2 = shadow_pad + 6, 18, 32
+        elif is_raised:
+            sy, a1, a2 = shadow_pad + raise_amount + 5, 15, 28
+        else:
+            sy, a1, a2 = shadow_pad + 4, 15, 25
+
+        pygame.draw.rect(
+            shadow_surf,
+            (0, 0, 0, a1),
+            pygame.Rect(shadow_pad, sy + 3, draw_rect.width, draw_rect.height),
+            border_radius=radius,
+        )
+        pygame.draw.rect(
+            shadow_surf,
+            (0, 0, 0, a2),
+            pygame.Rect(shadow_pad, sy, draw_rect.width, draw_rect.height),
+            border_radius=radius,
+        )
+        surface.blit(shadow_surf, (draw_rect.x - shadow_pad, draw_rect.y - shadow_pad))
+
+        # Card body
+        pygame.draw.rect(surface, bg_color, draw_rect, border_radius=radius)
+        pygame.draw.rect(surface, border_color, draw_rect, width=border_width, border_radius=radius)
 
         text_surf = font.render(self.symbol, True, text_color)
-        text_x = rect.centerx - text_surf.get_width() // 2
+        if scale > 1.001:
+            scaled_tw = max(1, int(round(text_surf.get_width() * scale)))
+            scaled_th = max(1, int(round(text_surf.get_height() * scale)))
+            text_surf = pygame.transform.smoothscale(text_surf, (scaled_tw, scaled_th))
+
+        text_x = draw_rect.centerx - text_surf.get_width() // 2
         if cap_offset is not None:
-            text_y = int(rect.centery - cap_offset)
+            text_y = int(draw_rect.centery - cap_offset * scale)
         else:
-            text_y = rect.centery - text_surf.get_height() // 2
+            text_y = draw_rect.centery - text_surf.get_height() // 2
         surface.blit(text_surf, (text_x, text_y))

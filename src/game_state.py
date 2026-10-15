@@ -67,18 +67,11 @@ class GameSession:
 
         # Determine target and prompt mode
         if self.ask_letter_sounds and not self.ask_letter_names:
-            # Phonetic only for letters: numbers and letters with valid sounds (not H/W/X) are eligible
-            eligible_targets = [
-                s for s in available_targets
-                if s.isdigit() or s not in SILENT_OR_AMBIGUOUS_LETTERS
-            ]
-            if not eligible_targets:
-                eligible_targets = available_targets
-            target = random.choice(eligible_targets)
-            if target.isdigit():
+            # All available targets are eligible; numbers and silent/ambiguous letters (H, W, X)
+            # seamlessly fall back to letter/number name prompt instead of being skipped.
+            target = random.choice(available_targets)
+            if target.isdigit() or target in SILENT_OR_AMBIGUOUS_LETTERS:
                 prompt_mode: PromptMode = "NAME"
-            elif target in SILENT_OR_AMBIGUOUS_LETTERS:
-                prompt_mode = "NAME"
             else:
                 prompt_mode = "PHONETIC"
         elif self.ask_letter_sounds and self.ask_letter_names:

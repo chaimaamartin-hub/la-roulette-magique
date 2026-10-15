@@ -178,4 +178,135 @@ def test_init_hand_cursor() -> None:
             init_hand_cursor()
 
 
+def test_draw_drop_shadow_happy_path() -> None:
+    from src.ui_elements import draw_drop_shadow, UIButton
+
+    surf = pygame.Surface((300, 200))
+    rect = pygame.Rect(50, 50, 100, 50)
+    draw_drop_shadow(surf, rect, border_radius=12)
+
+    font = pygame.font.SysFont("arial", 20)
+    btn = UIButton(rect=rect, text="Test")
+    btn.render(surf, font, mouse_pos=(0, 0))
+
+
+def test_draw_drop_shadow_invalid_dimensions_failure_path() -> None:
+    from src.ui_elements import draw_drop_shadow
+
+    surf = pygame.Surface((200, 200))
+    with pytest.raises(ValueError, match="CRITICAL: Rect dimensions must be positive"):
+        draw_drop_shadow(surf, pygame.Rect(10, 10, 0, 50), border_radius=10)
+    with pytest.raises(ValueError, match="CRITICAL: Rect dimensions must be positive"):
+        draw_drop_shadow(surf, pygame.Rect(10, 10, 50, -5), border_radius=10)
+
+
+def test_draw_drop_shadow_negative_radius_failure_path() -> None:
+    from src.ui_elements import draw_drop_shadow
+
+    surf = pygame.Surface((200, 200))
+    with pytest.raises(ValueError, match="CRITICAL: Border radius cannot be negative"):
+        draw_drop_shadow(surf, pygame.Rect(10, 10, 50, 50), border_radius=-1)
+
+
+def test_ui_checkbox_drop_shadow_happy_path() -> None:
+    from src.ui_elements import UICheckbox
+
+    surf = pygame.Surface((300, 300))
+    surf.fill((255, 255, 255))
+    font = pygame.font.SysFont("segoeui", 20)
+
+    box = UICheckbox(rect=pygame.Rect(50, 50, 46, 46), label="A", checked=False)
+    box.render(surf, font, mouse_pos=(0, 0))
+
+    # A pixel just below the bottom edge (offset_y shadow) should be darkened by drop shadow
+    shadow_pixel = surf.get_at((73, 50 + 46 + 1))
+    assert (shadow_pixel.r, shadow_pixel.g, shadow_pixel.b) != (255, 255, 255)
+    assert shadow_pixel.r < 255 and shadow_pixel.g < 255 and shadow_pixel.b < 255
+
+
+def test_ui_checkbox_toggle_and_click_failure_paths() -> None:
+    from src.ui_elements import UICheckbox
+
+    box = UICheckbox(rect=pygame.Rect(50, 50, 46, 46), label="B", checked=False)
+    assert box.checked is False
+    box.toggle()
+    assert box.checked is True
+
+    # Failure path 1: Out of bounds click returns False
+    assert box.is_clicked((0, 0)) is False
+    assert box.is_clicked((200, 200)) is False
+
+    # Failure path 2: Border edge outside bounds returns False
+    assert box.is_clicked((49, 50)) is False
+    assert box.is_clicked((50, 49)) is False
+
+
+def test_svg_play_and_check_icons() -> None:
+    from src.ui_icons import draw_check_icon, draw_play_icon, get_icon_surface
+    from src.ui_elements import UICheckbox
+
+    surf = pygame.Surface((200, 200))
+    # Happy paths
+    draw_play_icon(surf, (50, 50), 24, (255, 255, 255))
+    draw_check_icon(surf, (100, 50), 20, (255, 255, 255))
+
+    p_surf = get_icon_surface("play", 32, (255, 255, 255))
+    assert p_surf.get_size() == (32, 32)
+    c_surf = get_icon_surface("check", 32, (255, 255, 255))
+    assert c_surf.get_size() == (32, 32)
+
+    # Wide checkbox with checkmark
+    font = pygame.font.SysFont("segoeui", 16)
+    wide_box = UICheckbox(rect=pygame.Rect(10, 10, 150, 40), label="Mode Test", checked=True)
+    wide_box.render(surf, font, mouse_pos=(0, 0))
+
+    # Failure paths
+    with pytest.raises(ValueError, match="CRITICAL: Play icon size must be positive"):
+        draw_play_icon(surf, (50, 50), 0, (0, 0, 0))
+
+    with pytest.raises(ValueError, match="CRITICAL: Check icon size must be positive"):
+        draw_check_icon(surf, (50, 50), -10, (0, 0, 0))
+
+
+def test_get_aa_rounded_rect_surface_happy_path() -> None:
+    from src.ui_elements import get_aa_rounded_rect_surface
+
+    surf = get_aa_rounded_rect_surface(100, 60, border_radius=15, bg_color=(20, 20, 25))
+    assert isinstance(surf, pygame.Surface)
+    assert surf.get_size() == (100, 60)
+
+    # Verify cache returns the exact same surface instance
+    surf2 = get_aa_rounded_rect_surface(100, 60, border_radius=15, bg_color=(20, 20, 25))
+    assert surf is surf2
+
+    # Bordered version
+    surf_bordered = get_aa_rounded_rect_surface(
+        80, 80, border_radius=20, bg_color=(255, 255, 255), border_color=(20, 20, 25), border_width=3
+    )
+    assert surf_bordered.get_size() == (80, 80)
+
+
+def test_get_aa_rounded_rect_surface_failure_paths() -> None:
+    from src.ui_elements import get_aa_rounded_rect_surface
+
+    # Failure path 1: Non-positive dimensions
+    with pytest.raises(ValueError, match="CRITICAL: Dimensions must be positive"):
+        get_aa_rounded_rect_surface(0, 50, border_radius=10, bg_color=(0, 0, 0))
+
+    with pytest.raises(ValueError, match="CRITICAL: Dimensions must be positive"):
+        get_aa_rounded_rect_surface(50, -5, border_radius=10, bg_color=(0, 0, 0))
+
+    # Failure path 2: Negative border radius
+    with pytest.raises(ValueError, match="CRITICAL: border_radius cannot be negative"):
+        get_aa_rounded_rect_surface(50, 50, border_radius=-2, bg_color=(0, 0, 0))
+
+    # Failure path 3: Negative border width
+    with pytest.raises(ValueError, match="CRITICAL: border_width cannot be negative"):
+        get_aa_rounded_rect_surface(50, 50, border_radius=10, bg_color=(0, 0, 0), border_width=-1)
+
+
+
+
+
+
 

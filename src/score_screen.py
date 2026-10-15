@@ -20,6 +20,8 @@ class ScoreScreen:
         max_score: int = 10,
         animal_mgr: AnimalManager | None = None,
         audio_mgr: AudioManager | None = None,
+        video_preloader: object | None = None,
+        video_player: AnimalVideoPlayer | None = None,
     ) -> None:
         if screen_w <= 0 or screen_h <= 0:
             raise ValueError(f"CRITICAL: screen dimensions must be positive, got {screen_w}x{screen_h}")
@@ -50,8 +52,11 @@ class ScoreScreen:
         self.animal_pos: tuple[int, int] = (center_x, center_y - int(10 * self.scale))
 
         # Check for animal video (plays with volume 0, seamlessly looping)
-        self.video_player: AnimalVideoPlayer | None = None
-        if self.animal_mgr.has_video(self.score):
+        if video_player is not None:
+            self.video_player: AnimalVideoPlayer | None = video_player
+        elif video_preloader is not None and hasattr(video_preloader, "get_or_create_player"):
+            self.video_player = video_preloader.get_or_create_player(self.score, self.animal_sz)
+        elif self.animal_mgr.has_video(self.score):
             video_path = self.animal_mgr.get_video_path(self.score)
             if video_path is not None:
                 try:
@@ -61,6 +66,8 @@ class ScoreScreen:
                     )
                 except Exception:
                     self.video_player = None
+        else:
+            self.video_player = None
 
         # Target stars position
         self.circ_rad: int = max(10, int(18 * self.scale))

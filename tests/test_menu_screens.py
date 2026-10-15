@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import time
 import pygame
 import pytest
 
@@ -144,6 +145,42 @@ def test_config_screen_prompt_modes_toggles_and_constraints() -> None:
     surf = pygame.Surface((1280, 720))
     fm = FontManager()
     screen.render(surf, fm, mouse_pos=(100, 100))
+
+
+def test_config_screen_error_message_text() -> None:
+    from src.font_manager import FontManager
+
+    cfg = GameConfig(
+        selected_symbols=["A", "B", "C", "D", "E"],
+        ask_letter_names=True,
+        ask_letter_sounds=False,
+    )
+    screen = ConfigScreen(1280, 720, cfg)
+
+    # 1. Happy path: Initially no error message
+    assert screen.error_message == ""
+    assert screen.error_hide_time == 0.0
+
+    # 2. Failure path 1: Deselecting below 5 triggers error message
+    box_a = [b for b in screen.checkboxes if b.label == "A"][0]
+    ev_click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": box_a.rect.center})
+    screen.handle_event(ev_click)
+    assert screen.error_message == "Choisis au moins 5 lettres ou chiffres !"
+    assert screen.error_hide_time > time.time()
+    assert box_a.checked  # Remains checked
+
+    # 3. Failure path 2: Unchecking single active prompt mode triggers error message
+    ev_mode = pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": screen.btn_mode_names.rect.center})
+    screen.handle_event(ev_mode)
+    assert screen.error_message == "Choisis au moins un mode de jeu !"
+    assert screen.error_hide_time > time.time()
+    assert screen.btn_mode_names.checked
+
+    # 4. Render check: Error message text renders onto surface cleanly
+    surf = pygame.Surface((1280, 720))
+    fm = FontManager()
+    screen.render(surf, fm, mouse_pos=(100, 100))
+
 
 
 

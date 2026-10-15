@@ -166,4 +166,38 @@ def test_phonetic_mode_includes_numbers() -> None:
     assert letter_targets_count > 0, "Letters were never selected in phonetic mode!"
 
 
+def test_phonetic_mode_silent_letters_letter_name_fallback() -> None:
+    # 1 Happy Path: Silent letters (H, W, X) are selected as targets in sound-only mode
+    # and their prompt mode is automatically 'NAME'
+    pool = ["H", "W", "X", "A", "B", "C"]
+    chosen_silent_targets: set[str] = set()
+
+    for _ in range(60):
+        session = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+        target = session.current_round.target_symbol
+        if target in {"H", "W", "X"}:
+            chosen_silent_targets.add(target)
+            assert session.current_round.prompt_mode == "NAME"
+        else:
+            assert session.current_round.prompt_mode == "PHONETIC"
+
+    assert len(chosen_silent_targets) > 0, "Silent letters (H, W, X) were never selected as targets!"
+
+
+def test_phonetic_mode_silent_letters_failure_paths() -> None:
+    # Failure path 1: Cannot process guess in already finished session
+    pool = ["H", "W", "X", "A", "B"]
+    session = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+    session.is_game_over = True
+    with pytest.raises(RuntimeError, match="CRITICAL: Cannot guess in a finished game session"):
+        session.process_guess("H")
+
+    # Failure path 2: Cannot process guess after round already solved
+    session2 = GameSession(pool, ask_letter_names=False, ask_letter_sounds=True)
+    target = session2.current_round.target_symbol
+    assert session2.process_guess(target)
+    with pytest.raises(RuntimeError, match="CRITICAL: Current round is already solved"):
+        session2.process_guess(target)
+
+
 

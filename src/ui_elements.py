@@ -3,6 +3,7 @@ import pygame
 
 from src.ui_icons import (
     draw_arrow_left_icon,
+    draw_check_icon,
     draw_close_circle_icon,
     draw_gear_icon,
     draw_play_icon,
@@ -11,6 +12,77 @@ from src.ui_icons import (
 )
 
 IconType = Literal["PLAY", "GEAR", "EXIT", "ARROW_LEFT"]
+
+
+_aa_rect_cache: dict[tuple[int, int, int, tuple[int, int, int], tuple[int, int, int] | None, int], pygame.Surface] = {}
+_shadow_cache: dict[tuple[int, int, int, int, int], tuple[pygame.Surface, int]] = {}
+
+
+def get_aa_rounded_rect_surface(
+    width: int,
+    height: int,
+    border_radius: int,
+    bg_color: tuple[int, int, int],
+    border_color: tuple[int, int, int] | None = None,
+    border_width: int = 0,
+    aa_scale: int = 3,
+) -> pygame.Surface:
+    if width <= 0 or height <= 0:
+        raise ValueError(f"CRITICAL: Dimensions must be positive, got ({width}, {height})")
+    if border_radius < 0:
+        raise ValueError(f"CRITICAL: border_radius cannot be negative, got {border_radius}")
+    if border_width < 0:
+        raise ValueError(f"CRITICAL: border_width cannot be negative, got {border_width}")
+
+    key = (width, height, border_radius, bg_color, border_color, border_width)
+    if key in _aa_rect_cache:
+        return _aa_rect_cache[key]
+
+    sw, sh = width * aa_scale, height * aa_scale
+    srad = border_radius * aa_scale
+    sbw = border_width * aa_scale
+
+    surf_hi = pygame.Surface((sw, sh), pygame.SRCALPHA)
+    pygame.draw.rect(surf_hi, bg_color, (0, 0, sw, sh), border_radius=srad)
+    if border_color is not None and border_width > 0:
+        pygame.draw.rect(surf_hi, border_color, (0, 0, sw, sh), width=sbw, border_radius=srad)
+
+    surf = pygame.transform.smoothscale(surf_hi, (width, height))
+    _aa_rect_cache[key] = surf
+    return surf
+
+
+def draw_drop_shadow(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    border_radius: int,
+    offset_y: int = 3,
+    blur_pad: int = 6,
+) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        raise ValueError("CRITICAL: Rect dimensions must be positive")
+    if border_radius < 0:
+        raise ValueError("CRITICAL: Border radius cannot be negative")
+
+    key = (rect.width, rect.height, border_radius, offset_y, blur_pad)
+    if key not in _shadow_cache:
+        w = rect.width + blur_pad * 2
+        h = rect.height + blur_pad * 2 + offset_y
+        scale = 0.5
+        sw, sh = max(4, int(w * scale)), max(4, int(h * scale))
+        s_pad = blur_pad * scale
+        s_rad = border_radius * scale
+        s_off = offset_y * scale
+        s_w, s_h = rect.width * scale, rect.height * scale
+
+        low_surf = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        pygame.draw.rect(low_surf, (0, 0, 0, 16), pygame.Rect(s_pad, s_pad + s_off + 1, s_w, s_h), border_radius=int(s_rad))
+        pygame.draw.rect(low_surf, (0, 0, 0, 30), pygame.Rect(s_pad, s_pad + s_off, s_w, s_h), border_radius=int(s_rad))
+        shadow_surf = pygame.transform.smoothscale(low_surf, (w, h))
+        _shadow_cache[key] = (shadow_surf, blur_pad)
+
+    sh_surf, pad = _shadow_cache[key]
+    surface.blit(sh_surf, (rect.x - pad, rect.y - pad))
 
 
 class UIButton:
@@ -46,19 +118,14 @@ class UIButton:
         font: pygame.font.Font,
         mouse_pos: tuple[int, int],
     ) -> None:
+        draw_drop_shadow(surface, self.rect, self.border_radius, offset_y=3)
         hover = self.is_hovered(mouse_pos)
         color = self.hover_color if hover else self.bg_color
 
-        pygame.draw.rect(surface, color, self.rect, border_radius=self.border_radius)
-
-        if self.border_color is not None and self.border_width > 0:
-            pygame.draw.rect(
-                surface,
-                self.border_color,
-                self.rect,
-                width=self.border_width,
-                border_radius=self.border_radius,
-            )
+        btn_surf = get_aa_rounded_rect_surface(
+            self.rect.width, self.rect.height, self.border_radius, color, self.border_color, self.border_width
+        )
+        surface.blit(btn_surf, self.rect.topleft)
 
         text_surf = font.render(self.text, True, self.text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
@@ -93,25 +160,20 @@ class UIIconButton:
         return self.rect.collidepoint(pos)
 
     def render(self, surface: pygame.Surface, mouse_pos: tuple[int, int]) -> None:
+        draw_drop_shadow(surface, self.rect, self.border_radius, offset_y=3)
         hover = self.is_hovered(mouse_pos)
         color = self.hover_color if hover else self.bg_color
 
-        pygame.draw.rect(surface, color, self.rect, border_radius=self.border_radius)
-
-        if self.border_color is not None and self.border_width > 0:
-            pygame.draw.rect(
-                surface,
-                self.border_color,
-                self.rect,
-                width=self.border_width,
-                border_radius=self.border_radius,
-            )
+        btn_surf = get_aa_rounded_rect_surface(
+            self.rect.width, self.rect.height, self.border_radius, color, self.border_color, self.border_width
+        )
+        surface.blit(btn_surf, self.rect.topleft)
 
         cx, cy = self.rect.center
         icon_sz = min(self.rect.width, self.rect.height) // 2
 
         if self.icon_type == "PLAY":
-            draw_play_icon(surface, (cx + 2, cy), icon_sz, self.icon_color)
+            draw_play_icon(surface, (cx, cy), icon_sz, self.icon_color)
         elif self.icon_type == "GEAR":
             draw_gear_icon(surface, (cx, cy), icon_sz, self.icon_color)
         elif self.icon_type == "EXIT":
@@ -144,6 +206,10 @@ class UICheckbox:
         font: pygame.font.Font,
         mouse_pos: tuple[int, int],
     ) -> None:
+        radius = max(6, self.rect.width // 4)
+        offset_y = 2 if self.rect.width < 60 else 3
+        draw_drop_shadow(surface, self.rect, radius, offset_y=offset_y)
+
         hover = self.rect.collidepoint(mouse_pos)
         if self.checked:
             bg = (20, 20, 25)
@@ -154,11 +220,21 @@ class UICheckbox:
             border = (140, 140, 150)
             text_color = (20, 20, 25)
 
-        radius = max(6, self.rect.width // 4)
-        pygame.draw.rect(surface, bg, self.rect, border_radius=radius)
-        pygame.draw.rect(surface, border, self.rect, width=2, border_radius=radius)
+        box_surf = get_aa_rounded_rect_surface(self.rect.width, self.rect.height, radius, bg, border, 2)
+        surface.blit(box_surf, self.rect.topleft)
 
         text_surf = font.render(self.label, True, text_color)
-        text_rect = text_surf.get_rect(center=self.rect.center)
-        surface.blit(text_surf, text_rect)
+        if self.checked and self.rect.width >= 100:
+            icon_sz = max(14, int(self.rect.height * 0.40))
+            spacing = 8
+            total_content_w = icon_sz + spacing + text_surf.get_width()
+            start_x = self.rect.centerx - total_content_w // 2
+            draw_check_icon(surface, (start_x + icon_sz // 2, self.rect.centery), icon_sz, text_color)
+            surface.blit(
+                text_surf,
+                (start_x + icon_sz + spacing, self.rect.centery - text_surf.get_height() // 2),
+            )
+        else:
+            text_rect = text_surf.get_rect(center=self.rect.center)
+            surface.blit(text_surf, text_rect)
 
