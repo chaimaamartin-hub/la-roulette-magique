@@ -207,12 +207,29 @@ def get_hand_cursor_path() -> Path:
     return get_icon_svg_path("hand_cursor")
 
 
-def init_hand_cursor() -> pygame.cursors.Cursor:
+def build_hand_cursor_surface(target_size: int) -> pygame.Surface:
+    if target_size <= 0:
+        raise ValueError(f"CRITICAL: target_size must be positive, got {target_size}")
     cursor_path = get_hand_cursor_path()
     if not cursor_path.is_file():
         raise FileNotFoundError(f"CRITICAL: Hand cursor SVG not found at {cursor_path}")
-    surf = pygame.image.load(str(cursor_path))
-    cursor = pygame.cursors.Cursor((4, 4), surf)
+
+    raw_hi = pygame.image.load(str(cursor_path))
+    scaled_hand = pygame.transform.smoothscale(raw_hi, (target_size, target_size))
+
+    mask = pygame.mask.from_surface(scaled_hand)
+    shadow_surf = mask.to_surface(setcolor=(0, 0, 0, 55), unsetcolor=(0, 0, 0, 0))
+    blurred_shadow = pygame.transform.gaussian_blur(shadow_surf, 2)
+
+    final_surf = pygame.Surface((target_size + 4, target_size + 4), pygame.SRCALPHA)
+    final_surf.blit(blurred_shadow, (2, 3))
+    final_surf.blit(scaled_hand, (0, 0))
+    return final_surf
+
+
+def init_hand_cursor() -> pygame.cursors.Cursor:
+    surf = build_hand_cursor_surface(56)
+    cursor = pygame.cursors.Cursor((8, 4), surf)
     pygame.mouse.set_cursor(cursor)
     return cursor
 

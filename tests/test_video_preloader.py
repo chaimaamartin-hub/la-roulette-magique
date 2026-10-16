@@ -90,10 +90,25 @@ def test_video_preloader_no_video_score(tmp_path: Path) -> None:
     animal_mgr = AnimalManager(videos_dir=tmp_path)
     preloader = VideoPreloader(animal_mgr)
 
-    # Empty directory has no video for any score
     assert animal_mgr.has_video(0) is False
     res = preloader.get_or_create_player(0, 300)
     assert res is None
 
     preloader.close_all()
+
+
+def test_video_preloader_concurrent_race_condition() -> None:
+    animal_mgr = AnimalManager()
+    preloader = VideoPreloader(animal_mgr)
+
+    # Immediately call get_or_create_player right after preload_video without sleeping
+    preloader.preload_video(9, 240)
+    player = preloader.get_or_create_player(9, 240)
+    assert player is not None
+    # Preloaded dict should not contain an orphaned duplicate player for score 9
+    assert 9 not in preloader._preloaded_players
+
+    player.close()
+    preloader.close_all()
+
 

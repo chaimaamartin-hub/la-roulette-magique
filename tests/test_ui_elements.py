@@ -305,8 +305,43 @@ def test_get_aa_rounded_rect_surface_failure_paths() -> None:
         get_aa_rounded_rect_surface(50, 50, border_radius=10, bg_color=(0, 0, 0), border_width=-1)
 
 
+def test_button_micro_animation_happy_path() -> None:
+    from src.ui_elements import UIIconButton, compute_button_rect
+
+    base = pygame.Rect(100, 100, 80, 80)
+    hovered_rect = compute_button_rect(base, hover_scale=1.05, is_pressed=False)
+    assert hovered_rect.width > base.width
+    assert hovered_rect.center == base.center
+
+    pressed_rect = compute_button_rect(base, hover_scale=1.05, is_pressed=True)
+    assert pressed_rect.y == hovered_rect.y + 2
+
+    btn = UIIconButton(rect=base, icon_type="PLAY")
+    surf = pygame.Surface((300, 300))
+    btn.render(surf, mouse_pos=base.center)
+    assert btn.hover_scale > 1.0
 
 
+def test_button_micro_animation_failure_paths() -> None:
+    from src.ui_elements import compute_button_rect
+
+    with pytest.raises(ValueError, match="CRITICAL: Button rect dimensions must be positive"):
+        compute_button_rect(pygame.Rect(0, 0, 0, 50), hover_scale=1.0, is_pressed=False)
+
+    with pytest.raises(ValueError, match="CRITICAL: hover_scale must be positive"):
+        compute_button_rect(pygame.Rect(0, 0, 50, 50), hover_scale=0.0, is_pressed=False)
 
 
+def test_build_hand_cursor_surface_happy_and_failure_paths() -> None:
+    from unittest.mock import patch
+    from src.ui_icons import build_hand_cursor_surface
 
+    surf = build_hand_cursor_surface(56)
+    assert surf.get_size() == (60, 60)
+
+    with pytest.raises(ValueError, match="CRITICAL: target_size must be positive"):
+        build_hand_cursor_surface(0)
+
+    with patch("src.ui_icons.get_hand_cursor_path", return_value=Path("missing_hand.svg")):
+        with pytest.raises(FileNotFoundError, match="CRITICAL: Hand cursor SVG not found"):
+            build_hand_cursor_surface(56)

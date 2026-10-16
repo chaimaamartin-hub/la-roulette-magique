@@ -137,4 +137,73 @@ def test_probe_video_dimensions_validation_failure_paths() -> None:
         probe_video_dimensions(Path("non_existent_video.mp4"))
 
 
+def test_ffmpeg_fallback_worker_advances_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+    import src.video_player as vp_mod
+
+    video_path = Path(__file__).resolve().parent.parent / "assets" / "videos" / "animals" / "score_9_lion.mp4"
+    if not video_path.is_file():
+        pytest.skip("score_9_lion.mp4 not found")
+
+    ffmpeg_bin = find_ffmpeg_executable()
+    monkeypatch.setattr(vp_mod, "find_ffmpeg_executable", lambda: ffmpeg_bin)
+    monkeypatch.setattr(sys, "platform", "linux")
+    player = AnimalVideoPlayer(video_path=video_path, target_height=120, fps=24)
+    try:
+        time.sleep(0.25)
+        player.update(0.1)
+        frame = player.get_current_frame()
+        assert isinstance(frame, pygame.Surface)
+        assert frame.get_height() == 120
+    finally:
+        player.close()
+
+
+def test_animal_video_player_restart_happy_path() -> None:
+    # 1 Happy Path: Restart resets playback time, status, and delivers a valid frame
+    video_path = Path(__file__).resolve().parent.parent / "assets" / "videos" / "animals" / "score_9_lion.mp4"
+    if not video_path.is_file():
+        pytest.skip("score_9_lion.mp4 not found")
+
+    player = AnimalVideoPlayer(video_path=video_path, target_height=200, fps=24)
+    try:
+        player.update(0.5)
+        player.is_finished = True
+        player.restart()
+        assert player.is_finished is False
+        assert player.elapsed == 0.0
+        frame = player.get_current_frame()
+        assert isinstance(frame, pygame.Surface)
+        assert frame.get_height() == 200
+    finally:
+        player.close()
+
+
+def test_animal_video_player_restart_failure_paths() -> None:
+    video_path = Path(__file__).resolve().parent.parent / "assets" / "videos" / "animals" / "score_9_lion.mp4"
+    if not video_path.is_file():
+        pytest.skip("score_9_lion.mp4 not found")
+
+    # Failure path 1: Restarting after pointing to missing file raises FileNotFoundError
+    player = AnimalVideoPlayer(video_path=video_path, target_height=200, fps=24)
+    try:
+        player.video_path = Path("non_existent_file.mp4")
+        with pytest.raises(FileNotFoundError, match="CRITICAL"):
+            player.restart()
+    finally:
+        player.close()
+
+    # Failure path 2: Restarting when pointing to a directory raises error
+    player2 = AnimalVideoPlayer(video_path=video_path, target_height=200, fps=24)
+    try:
+        player2.video_path = video_path.parent
+        with pytest.raises((RuntimeError, FileNotFoundError, PermissionError, IsADirectoryError)):
+            player2.restart()
+    finally:
+        player2.close()
+
+
+
+
+
 

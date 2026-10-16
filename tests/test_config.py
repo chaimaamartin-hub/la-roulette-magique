@@ -166,3 +166,20 @@ def test_save_and_load_config_with_prompt_modes(tmp_path: Path) -> None:
     assert loaded.ask_letter_sounds
 
 
+def test_config_distinct_case_insensitive_symbols() -> None:
+    # 1 Happy path: 5 distinct letters plus lowercase variants is valid
+    cfg_ok = GameConfig(selected_symbols=["A", "a", "B", "b", "C", "D", "E"])
+    cfg_ok.validate()
+
+    # 2 Failure path A: 5 symbols that are only 3 distinct letters (A/a, B/b, C) raises ValueError
+    cfg_dup_case = GameConfig(selected_symbols=["A", "a", "B", "b", "C"])
+    with pytest.raises(ValueError, match="CRITICAL: At least 5 symbols must be selected, got 3"):
+        cfg_dup_case.validate()
+
+    # 3 Failure path B: 6 symbols that are only 4 distinct letters raises ValueError
+    cfg_four = GameConfig(selected_symbols=["A", "a", "B", "b", "C", "d"])
+    with pytest.raises(ValueError, match="CRITICAL: At least 5 symbols must be selected, got 4"):
+        cfg_four.validate()
+
+
+

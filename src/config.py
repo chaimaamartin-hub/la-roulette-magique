@@ -26,10 +26,11 @@ class GameConfig:
             raise ValueError(
                 "CRITICAL: At least one prompt mode (names or sounds) must be selected."
             )
-        if len(self.selected_symbols) < MIN_SELECTED_SYMBOLS:
+        distinct_symbols = {s.upper() for s in self.selected_symbols}
+        if len(distinct_symbols) < MIN_SELECTED_SYMBOLS:
             raise ValueError(
                 f"CRITICAL: At least {MIN_SELECTED_SYMBOLS} symbols must be selected, "
-                f"got {len(self.selected_symbols)}."
+                f"got {len(distinct_symbols)}."
             )
         valid_pool = set(ALL_UPPERCASE + ALL_LOWERCASE + ALL_NUMBERS)
         for sym in self.selected_symbols:

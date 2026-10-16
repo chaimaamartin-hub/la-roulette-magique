@@ -2,6 +2,7 @@ import ctypes
 from ctypes import wintypes
 from pathlib import Path
 import sys
+import threading
 import pygame
 
 class GUID(ctypes.Structure):
@@ -43,18 +44,26 @@ def _release_com(obj: PCOMObject | None) -> None:
         _call_com(obj, 2, ctypes.c_ulong)(obj)
 
 _MF_INITIALIZED: bool = False
+_MF_LOCK: threading.Lock = threading.Lock()
+_THREAD_LOCAL: threading.local = threading.local()
 
 def init_media_foundation() -> None:
     global _MF_INITIALIZED
-    if _MF_INITIALIZED or sys.platform != "win32":
+    if sys.platform != "win32":
         return
-    ctypes.windll.ole32.CoInitializeEx(None, 0)
-    hr = ctypes.windll.mfplat.MFStartup(0x00020070, 1)
-    if hr != 0:
-        raise RuntimeError(f"CRITICAL: Failed to initialize Media Foundation, hr={hex(hr & 0xFFFFFFFF)}")
-    _MF_INITIALIZED = True
+    if not getattr(_THREAD_LOCAL, "com_initialized", False):
+        ctypes.windll.ole32.CoInitializeEx(None, 0)
+        _THREAD_LOCAL.com_initialized = True
+    with _MF_LOCK:
+        if not _MF_INITIALIZED:
+            hr = ctypes.windll.mfplat.MFStartup(0x00020070, 1)
+            if hr != 0:
+                raise RuntimeError(f"CRITICAL: Failed to initialize Media Foundation, hr={hex(hr & 0xFFFFFFFF)}")
+            _MF_INITIALIZED = True
 
 
+# Maps near-white video background values (245..255) to pure 255 so the video border blends
+# invisibly into the (255, 255, 255) screen background (applied before and after smoothscale by design).
 _COLOR_LEVEL_TABLE: bytes = bytes(min(255, int(i * 255 / 245)) if i < 245 else 255 for i in range(256))
 
 
@@ -157,11 +166,14 @@ class WMFVideoReader:
 
         while True:
             hr = read_sample(self._reader, 0xFFFFFFFC, 0, ctypes.byref(actStream), ctypes.byref(flags), ctypes.byref(timestamp), ctypes.byref(pSample))
-            if flags.value & 0x200 or hr != 0:  # MF_SOURCE_READERF_ENDOFSTREAM
+            # MF_SOURCE_READERF_ERROR = 0x01, MF_SOURCE_READERF_ENDOFSTREAM = 0x02
+            if hr != 0 or (flags.value & 0x02) or (flags.value & 0x01):
                 self._is_eof = True
                 return None
             if pSample:
                 break
+            # If no sample and stream tick / gap, loop until next sample or EOF
+
 
         pBuffer = PCOMObject()
         to_contiguous = _call_com(pSample, 41, ctypes.c_int32, PPCOMObject)

@@ -162,6 +162,9 @@ class GameScreen:
         # 10 progress stars on top center (no text)
         circ_rad = max(8, int(15 * self.scale))
         circ_spacing = max(22, int(46 * self.scale))
+        active_idx = self.session.current_round_num - 1
+        pop_prog = min(1.0, self.phase_time / 0.35) if self.phase == "SOLVED_FEEDBACK" else None
+        rainbow_prog = min(1.0, self.phase_time / 0.80) if self.phase == "SOLVED_FEEDBACK" else None
         draw_progress_stars(
             surface=surface,
             center_pos=(self.w // 2, int(45 * self.scale)),
@@ -170,6 +173,9 @@ class GameScreen:
             radius=circ_rad,
             spacing=circ_spacing,
             filled_color=(235, 165, 0),
+            active_round_index=active_idx,
+            latest_pop_progress=pop_prog,
+            latest_rainbow_progress=rainbow_prog,
         )
 
         base_font_size = 110 if len(self.cards) <= 4 else 95

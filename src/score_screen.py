@@ -1,3 +1,4 @@
+import math
 from typing import Literal
 import pygame
 
@@ -8,6 +9,81 @@ from src.ui_elements import UIIconButton, draw_progress_stars
 from src.video_player import AnimalVideoPlayer
 
 ScreenAction = Literal["MENU", "PLAY", "CONFIG", "SCORE", "QUIT"]
+
+
+def compute_star_drop_state(
+    anim_time: float,
+    star_index: int,
+    start_y: float,
+    target_y: float,
+) -> tuple[int, float]:
+    if not isinstance(anim_time, (int, float)) or math.isnan(anim_time):
+        raise ValueError("CRITICAL: anim_time must be a valid number.")
+    if not isinstance(star_index, int) or isinstance(star_index, bool) or star_index < 0:
+        raise ValueError("CRITICAL: star_index must be a non-negative integer.")
+
+    stagger = star_index * 0.025
+    drop_dur = 0.42
+    star_t = min(1.0, max(0.0, (anim_time - stagger) / drop_dur))
+
+    # Elastic back-out curve for springy landing bounce
+    u = star_t - 1.0
+    overshoot = 1.45
+    eased_fall = 1.0 + u * u * ((overshoot + 1.0) * u + overshoot)
+    current_y = start_y + (target_y - start_y) * eased_fall
+    offset_from_target = int(round(current_y - target_y))
+
+    # Brief scale pop as the star lands into place
+    if 0.65 <= star_t < 1.0:
+        land_p = (star_t - 0.65) / 0.35
+        star_scale = 1.0 + 0.18 * math.sin(land_p * math.pi)
+    else:
+        star_scale = 1.0
+
+    return offset_from_target, star_scale
+
+
+def compute_star_rainbow_wave(
+    anim_time: float,
+    star_index: int,
+    is_earned: bool,
+) -> float | None:
+    if not isinstance(anim_time, (int, float)) or math.isnan(anim_time):
+        raise ValueError("CRITICAL: anim_time must be a valid number.")
+    if not isinstance(star_index, int) or isinstance(star_index, bool) or star_index < 0:
+        raise ValueError("CRITICAL: star_index must be a non-negative integer.")
+    if not isinstance(is_earned, bool):
+        raise TypeError("CRITICAL: is_earned must be a boolean.")
+
+    if not is_earned:
+        return None
+
+    wave_start = star_index * 0.05
+    wave_dur = 0.95
+    if anim_time < 0.0:
+        return 0.0
+    progress = max(0.0, (anim_time - wave_start) / wave_dur)
+    if progress >= 1.0:
+        return None
+    return progress
+
+
+def compute_animal_entrance_scale(anim_time: float, fade_duration: float) -> float:
+    if not isinstance(anim_time, (int, float)) or math.isnan(anim_time):
+        raise ValueError("CRITICAL: anim_time must be a valid number.")
+    if not isinstance(fade_duration, (int, float)) or math.isnan(fade_duration) or fade_duration <= 0.0:
+        raise ValueError("CRITICAL: fade_duration must be a positive number.")
+
+    if anim_time <= 0.0:
+        return 0.86
+    if anim_time >= fade_duration:
+        return 1.0
+
+    t = anim_time / fade_duration
+    u = t - 1.0
+    overshoot = 2.2
+    eased = 1.0 + u * u * ((overshoot + 1.0) * u + overshoot)
+    return 0.86 + 0.14 * eased
 
 
 class ScoreScreen:
@@ -42,6 +118,8 @@ class ScoreScreen:
         # Animation timer
         self.anim_time: float = 0.0
         self.fade_duration: float = 0.45  # Under 0.5s per spec
+        self.bounce_anim_time: float = 1.0  # Finished initially
+        self.bounce_duration: float = 0.45
 
         # Center layout
         center_x = screen_w // 2
@@ -51,7 +129,7 @@ class ScoreScreen:
         self.animal_sz: int = max(320, int(520 * self.scale))
         self.animal_pos: tuple[int, int] = (center_x, center_y - int(10 * self.scale))
 
-        # Check for animal video (plays with volume 0, seamlessly looping)
+        # Check for animal video (plays once with volume 0 and holds on final frame; never loops by design)
         if video_player is not None:
             self.video_player: AnimalVideoPlayer | None = video_player
         elif video_preloader is not None and hasattr(video_preloader, "get_or_create_player"):
@@ -87,8 +165,47 @@ class ScoreScreen:
             border_radius=max(16, int(play_sz * 0.22)),
         )
 
+    def get_animal_rect(self) -> pygame.Rect:
+        if self.video_player is not None:
+            w = self.video_player.width
+            h = self.video_player.height
+        else:
+            surf = self.animal_mgr.get_animal_surface(self.score, self.animal_sz)
+            w = surf.get_width()
+            h = surf.get_height()
+        return pygame.Rect(
+            self.animal_pos[0] - w // 2,
+            self.animal_pos[1] - h // 2,
+            w,
+            h,
+        )
+
+    def is_animal_clicked(self, pos: tuple[int, int]) -> bool:
+        if not isinstance(pos, (tuple, list)) or len(pos) != 2:
+            raise TypeError(f"CRITICAL: pos must be a tuple of (x, y) coordinates, got {type(pos).__name__}")
+        return self.get_animal_rect().collidepoint(pos[0], pos[1])
+
+    def is_animal_animation_finished(self) -> bool:
+        if self.anim_time < self.fade_duration:
+            return False
+        if self.video_player is not None:
+            return self.video_player.is_finished
+        return self.bounce_anim_time >= self.bounce_duration
+
+    def replay_animal_animation(self) -> None:
+        if not self.is_animal_animation_finished():
+            return
+        if self.video_player is not None:
+            self.video_player.restart()
+        else:
+            self.bounce_anim_time = 0.0
+        if self.audio_mgr is not None:
+            self.audio_mgr.play_animal_sound(self.score)
+
     def update(self, dt: float) -> None:
         self.anim_time += dt
+        if self.bounce_anim_time < self.bounce_duration:
+            self.bounce_anim_time += dt
         if self.video_player is not None:
             self.video_player.update(dt)
 
@@ -96,23 +213,26 @@ class ScoreScreen:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.btn_replay.is_clicked(event.pos):
                 return "PLAY"
+            if self.is_animal_clicked(event.pos) and self.is_animal_animation_finished():
+                self.replay_animal_animation()
         return None
 
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
         center_x = self.w // 2
 
-        # 1. Falling stars animation (drops from above the screen into place over <= 0.45s)
+        # 1. Falling stars animation with springy landing bounce & diagonal rainbow wave settling to gold
         star_offsets: list[int] = []
+        star_scales: list[float] = []
+        star_rainbows: list[float | None] = []
         for i in range(self.max_score):
-            # Subtle stagger of 0.02s per star
-            stagger = i * 0.015
-            star_t = min(1.0, max(0.0, (self.anim_time - stagger) / 0.35))
-            # Ease-out cubic fall
-            eased_fall = 1.0 - ((1.0 - star_t) ** 3)
-            current_y = self.circ_start_y + (self.circ_target_y - self.circ_start_y) * eased_fall
-            offset_from_target = int(current_y - self.circ_target_y)
-            star_offsets.append(offset_from_target)
+            offset_y, s_scale = compute_star_drop_state(
+                self.anim_time, i, float(self.circ_start_y), float(self.circ_target_y)
+            )
+            star_offsets.append(offset_y)
+            star_scales.append(s_scale)
+            is_earned = i < len(self.round_results) and bool(self.round_results[i])
+            star_rainbows.append(compute_star_rainbow_wave(self.anim_time, i, is_earned))
 
         draw_progress_stars(
             surface=surface,
@@ -123,9 +243,12 @@ class ScoreScreen:
             spacing=self.circ_spacing,
             filled_color=(235, 165, 0),
             star_y_offsets=star_offsets,
+            anim_time=self.anim_time,
+            star_scales=star_scales,
+            star_rainbow_progresses=star_rainbows,
         )
 
-        # 2. Animal illustration or video (2x size, fades in over <= 0.45s)
+        # 2. Animal illustration or video (entrance pop-in scale + fade over <= 0.45s)
         fade_t = min(1.0, max(0.0, self.anim_time / self.fade_duration))
         alpha = int(255 * fade_t)
 
@@ -133,6 +256,17 @@ class ScoreScreen:
             animal_surf = self.video_player.get_current_frame()
         else:
             animal_surf = self.animal_mgr.get_animal_surface(self.score, self.animal_sz)
+
+        total_scale = compute_animal_entrance_scale(self.anim_time, self.fade_duration)
+        if self.bounce_anim_time < self.bounce_duration:
+            p = self.bounce_anim_time / self.bounce_duration
+            total_scale *= 1.0 + 0.12 * math.sin(p * math.pi)
+
+        if abs(total_scale - 1.0) > 0.003:
+            bw = max(1, int(round(animal_surf.get_width() * total_scale)))
+            bh = max(1, int(round(animal_surf.get_height() * total_scale)))
+            animal_surf = pygame.transform.smoothscale(animal_surf, (bw, bh))
+
 
         draw_x = self.animal_pos[0] - animal_surf.get_width() // 2
         draw_y = self.animal_pos[1] - animal_surf.get_height() // 2

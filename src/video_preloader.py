@@ -13,6 +13,7 @@ class VideoPreloader:
             raise TypeError(f"CRITICAL: animal_mgr must be an AnimalManager, got {type(animal_mgr).__name__}")
         self.animal_mgr: AnimalManager = animal_mgr
         self._lock: threading.Lock = threading.Lock()
+        self._cond: threading.Condition = threading.Condition(self._lock)
         self._preloaded_players: dict[int, AnimalVideoPlayer] = {}
         self._poster_surfaces: dict[int, pygame.Surface] = {}
         self._warmup_started: bool = False
@@ -21,7 +22,7 @@ class VideoPreloader:
     def start_warmup(self, target_height: int) -> None:
         if target_height <= 0:
             raise ValueError(f"CRITICAL: target_height must be positive, got {target_height}")
-        with self._lock:
+        with self._cond:
             if self._warmup_started:
                 return
             self._warmup_started = True
@@ -52,7 +53,7 @@ class VideoPreloader:
         if not self.animal_mgr.has_video(score):
             return
 
-        with self._lock:
+        with self._cond:
             if score in self._preloaded_players or score in self._preloading_scores:
                 return
             self._preloading_scores.add(score)
@@ -63,19 +64,26 @@ class VideoPreloader:
     def _preload_worker(self, score: int, target_height: int) -> None:
         vpath = self.animal_mgr.get_video_path(score)
         if vpath is None or not vpath.is_file():
-            with self._lock:
+            with self._cond:
                 self._preloading_scores.discard(score)
+                self._cond.notify_all()
             return
 
+        player: AnimalVideoPlayer | None = None
         try:
             player = AnimalVideoPlayer(video_path=vpath, target_height=target_height)
-            with self._lock:
-                self._preloaded_players[score] = player
+            with self._cond:
+                if score in self._preloading_scores:
+                    self._preloaded_players[score] = player
+                    player = None
         except Exception:
             pass
         finally:
-            with self._lock:
+            if player is not None:
+                player.close()
+            with self._cond:
                 self._preloading_scores.discard(score)
+                self._cond.notify_all()
 
     def get_or_create_player(self, score: int, target_height: int) -> AnimalVideoPlayer | None:
         if not isinstance(score, int):
@@ -88,7 +96,9 @@ class VideoPreloader:
         if not self.animal_mgr.has_video(score):
             return None
 
-        with self._lock:
+        with self._cond:
+            if score in self._preloading_scores and score not in self._preloaded_players:
+                self._cond.wait(timeout=1.5)
             if score in self._preloaded_players:
                 return self._preloaded_players.pop(score)
 
@@ -102,15 +112,18 @@ class VideoPreloader:
             return None
 
     def cleanup_unused(self, keep_score: int | None = None) -> None:
-        with self._lock:
+        with self._cond:
+            self._preloading_scores = {s for s in self._preloading_scores if s == keep_score}
             scores_to_remove = [s for s in self._preloaded_players if s != keep_score]
             for s in scores_to_remove:
                 player = self._preloaded_players.pop(s)
                 player.close()
+            self._cond.notify_all()
 
     def close_all(self) -> None:
-        with self._lock:
+        with self._cond:
+            self._preloading_scores.clear()
             for player in self._preloaded_players.values():
                 player.close()
             self._preloaded_players.clear()
-            self._preloading_scores.clear()
+            self._cond.notify_all()

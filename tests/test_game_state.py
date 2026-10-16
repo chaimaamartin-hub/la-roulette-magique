@@ -200,4 +200,45 @@ def test_phonetic_mode_silent_letters_failure_paths() -> None:
         session2.process_guess(target)
 
 
+def test_case_insensitive_collision_avoidance_and_k_fallback() -> None:
+    # 1 Happy Path: Pool with both uppercase and lowercase ('A', 'a', 'B', 'b', 'C', 'D', 'E')
+    # never displays both cases of the same letter in the same round or consecutive targets.
+    mixed_pool = ["A", "a", "B", "b", "C", "D", "E"]
+    for _ in range(15):
+        session = GameSession(mixed_pool, ask_letter_names=True, ask_letter_sounds=True)
+        prev_upper = session.current_round.target_symbol.upper()
+        while True:
+            uppers = [s.upper() for s in session.current_round.displayed_symbols]
+            assert len(uppers) == len(set(uppers)), f"Duplicate case-insensitive letters on screen: {session.current_round.displayed_symbols}"
+            assert session.process_guess(session.current_round.target_symbol)
+            if not session.advance_to_next_round():
+                break
+            curr_upper = session.current_round.target_symbol.upper()
+            assert curr_upper != prev_upper
+            prev_upper = curr_upper
+
+    # 2 Happy Path: 5-symbol pool with 3 K-sound letters ('C', 'K', 'Q', 'A', 'B')
+    # completes all 10 rounds in sound-only mode by falling back to NAME in 4-5 card rounds.
+    k_heavy_pool = ["C", "K", "Q", "A", "B"]
+    session_k = GameSession(k_heavy_pool, ask_letter_names=False, ask_letter_sounds=True)
+    for _ in range(TOTAL_ROUNDS - 1):
+        assert session_k.process_guess(session_k.current_round.target_symbol)
+        assert session_k.advance_to_next_round()
+    assert session_k.process_guess(session_k.current_round.target_symbol)
+    assert not session_k.advance_to_next_round()
+    assert session_k.is_game_over
+
+    # Failure Path 1: Pool with 5 items but only 3 distinct case-insensitive symbols fails in Round 1
+    case_dup_pool = ["A", "a", "B", "b", "A"]
+    with pytest.raises(ValueError, match="CRITICAL: Not enough distractors"):
+        GameSession(case_dup_pool)
+
+    # Failure Path 2: Pool where all symbols match previous target case-insensitively raises ValueError
+    session_err = GameSession(["A", "B", "C", "D", "E"])
+    session_err.symbol_pool = ["a", "A"]
+    with pytest.raises(ValueError, match="CRITICAL: No available targets after excluding previous target"):
+        session_err._init_round(2, previous_target="A")
+
+
+
 

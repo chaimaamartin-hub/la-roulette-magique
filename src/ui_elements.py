@@ -14,7 +14,7 @@ from src.ui_icons import (
 IconType = Literal["PLAY", "GEAR", "EXIT", "ARROW_LEFT"]
 
 
-_aa_rect_cache: dict[tuple[int, int, int, tuple[int, int, int], tuple[int, int, int] | None, int], pygame.Surface] = {}
+_aa_rect_cache: dict[tuple[int, int, int, tuple[int, int, int] | None, tuple[int, int, int] | None, int], pygame.Surface] = {}
 _shadow_cache: dict[tuple[int, int, int, int, int], tuple[pygame.Surface, int]] = {}
 
 
@@ -22,7 +22,7 @@ def get_aa_rounded_rect_surface(
     width: int,
     height: int,
     border_radius: int,
-    bg_color: tuple[int, int, int],
+    bg_color: tuple[int, int, int] | None,
     border_color: tuple[int, int, int] | None = None,
     border_width: int = 0,
     aa_scale: int = 3,
@@ -43,7 +43,8 @@ def get_aa_rounded_rect_surface(
     sbw = border_width * aa_scale
 
     surf_hi = pygame.Surface((sw, sh), pygame.SRCALPHA)
-    pygame.draw.rect(surf_hi, bg_color, (0, 0, sw, sh), border_radius=srad)
+    if bg_color is not None:
+        pygame.draw.rect(surf_hi, bg_color, (0, 0, sw, sh), border_radius=srad)
     if border_color is not None and border_width > 0:
         pygame.draw.rect(surf_hi, border_color, (0, 0, sw, sh), width=sbw, border_radius=srad)
 
@@ -85,6 +86,33 @@ def draw_drop_shadow(
     surface.blit(sh_surf, (rect.x - pad, rect.y - pad))
 
 
+def compute_button_rect(
+    rect: pygame.Rect,
+    hover_scale: float,
+    is_pressed: bool,
+) -> pygame.Rect:
+    if rect.width <= 0 or rect.height <= 0:
+        raise ValueError("CRITICAL: Button rect dimensions must be positive.")
+    if hover_scale <= 0.0:
+        raise ValueError("CRITICAL: hover_scale must be positive.")
+
+    extra_w = int(round(rect.width * (hover_scale - 1.0)))
+    extra_h = int(round(rect.height * (hover_scale - 1.0)))
+    scaled_rect = rect.inflate(extra_w, extra_h)
+    if is_pressed:
+        scaled_rect = scaled_rect.move(0, 2)
+    return scaled_rect
+
+
+def _is_left_mouse_pressed() -> bool:
+    if not pygame.get_init() or not pygame.display.get_init():
+        return False
+    try:
+        return bool(pygame.mouse.get_pressed()[0])
+    except Exception:
+        return False
+
+
 class UIButton:
     def __init__(
         self,
@@ -105,6 +133,7 @@ class UIButton:
         self.border_radius: int = border_radius
         self.border_color: tuple[int, int, int] | None = border_color
         self.border_width: int = border_width
+        self.hover_scale: float = 1.0
 
     def is_hovered(self, pos: tuple[int, int]) -> bool:
         return self.rect.collidepoint(pos)
@@ -118,17 +147,24 @@ class UIButton:
         font: pygame.font.Font,
         mouse_pos: tuple[int, int],
     ) -> None:
-        draw_drop_shadow(surface, self.rect, self.border_radius, offset_y=3)
         hover = self.is_hovered(mouse_pos)
+        target_scale = 1.05 if hover else 1.0
+        self.hover_scale += (target_scale - self.hover_scale) * 0.35
+        if abs(self.hover_scale - target_scale) < 0.002:
+            self.hover_scale = target_scale
+
+        is_pressed = hover and _is_left_mouse_pressed()
+        draw_rect = compute_button_rect(self.rect, self.hover_scale, is_pressed)
+        draw_drop_shadow(surface, draw_rect, self.border_radius, offset_y=2 if is_pressed else 3)
         color = self.hover_color if hover else self.bg_color
 
         btn_surf = get_aa_rounded_rect_surface(
-            self.rect.width, self.rect.height, self.border_radius, color, self.border_color, self.border_width
+            draw_rect.width, draw_rect.height, self.border_radius, color, self.border_color, self.border_width
         )
-        surface.blit(btn_surf, self.rect.topleft)
+        surface.blit(btn_surf, draw_rect.topleft)
 
         text_surf = font.render(self.text, True, self.text_color)
-        text_rect = text_surf.get_rect(center=self.rect.center)
+        text_rect = text_surf.get_rect(center=draw_rect.center)
         surface.blit(text_surf, text_rect)
 
 
@@ -152,6 +188,7 @@ class UIIconButton:
         self.border_radius: int = border_radius
         self.border_color: tuple[int, int, int] | None = border_color
         self.border_width: int = border_width
+        self.hover_scale: float = 1.0
 
     def is_hovered(self, pos: tuple[int, int]) -> bool:
         return self.rect.collidepoint(pos)
@@ -160,17 +197,24 @@ class UIIconButton:
         return self.rect.collidepoint(pos)
 
     def render(self, surface: pygame.Surface, mouse_pos: tuple[int, int]) -> None:
-        draw_drop_shadow(surface, self.rect, self.border_radius, offset_y=3)
         hover = self.is_hovered(mouse_pos)
+        target_scale = 1.05 if hover else 1.0
+        self.hover_scale += (target_scale - self.hover_scale) * 0.35
+        if abs(self.hover_scale - target_scale) < 0.002:
+            self.hover_scale = target_scale
+
+        is_pressed = hover and _is_left_mouse_pressed()
+        draw_rect = compute_button_rect(self.rect, self.hover_scale, is_pressed)
+        draw_drop_shadow(surface, draw_rect, self.border_radius, offset_y=2 if is_pressed else 3)
         color = self.hover_color if hover else self.bg_color
 
         btn_surf = get_aa_rounded_rect_surface(
-            self.rect.width, self.rect.height, self.border_radius, color, self.border_color, self.border_width
+            draw_rect.width, draw_rect.height, self.border_radius, color, self.border_color, self.border_width
         )
-        surface.blit(btn_surf, self.rect.topleft)
+        surface.blit(btn_surf, draw_rect.topleft)
 
-        cx, cy = self.rect.center
-        icon_sz = min(self.rect.width, self.rect.height) // 2
+        cx, cy = draw_rect.center
+        icon_sz = min(draw_rect.width, draw_rect.height) // 2
 
         if self.icon_type == "PLAY":
             draw_play_icon(surface, (cx, cy), icon_sz, self.icon_color)

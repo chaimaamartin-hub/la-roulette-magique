@@ -10,18 +10,43 @@ from src.tts_generator import TTSRequest, synthesize_speech
 
 LETTERS: list[str] = [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 NUMBERS: list[str] = [str(n) for n in range(1, 21)]
+PHONETIC_SOUND_MAP: dict[str, str] = {
+    "A": "a",
+    "B": "b",
+    "C": "k",
+    "D": "d",
+    "E": "e",
+    "F": "f",
+    "G": "g",
+    "I": "i",
+    "J": "j",
+    "K": "k",
+    "L": "l",
+    "M": "m",
+    "N": "n",
+    "O": "o",
+    "P": "p",
+    "Q": "k",
+    "R": "r",
+    "S": "s",
+    "T": "t",
+    "U": "u",
+    "V": "v",
+    "Y": "i",
+    "Z": "z",
+}
 
 
 @dataclass(frozen=True)
 class AudioItem:
     filename: str
     text: str
-    category: str  # "letter" or "number"
+    category: str  # "letter", "number", or "phonetic"
     utterance_type: str  # "question", "ans_pos", "ans_neg"
     symbol: str
 
 
-def build_audio_manifest() -> list[AudioItem]:
+def build_audio_manifest(include_phonetics: bool = True) -> list[AudioItem]:
     manifest: list[AudioItem] = []
 
     for letter in LETTERS:
@@ -81,6 +106,36 @@ def build_audio_manifest() -> list[AudioItem]:
                 symbol=num,
             )
         )
+
+    if include_phonetics:
+        for letter, sound in PHONETIC_SOUND_MAP.items():
+            manifest.append(
+                AudioItem(
+                    filename=f"q_phonetic_{letter}.mp3",
+                    text=f"Quelle lettre fait le son « {sound} » ?",
+                    category="phonetic",
+                    utterance_type="question",
+                    symbol=letter,
+                )
+            )
+            manifest.append(
+                AudioItem(
+                    filename=f"ans_pos_phonetic_{letter}.mp3",
+                    text=f"Oui, c'est la lettre qui fait le son « {sound} » !",
+                    category="phonetic",
+                    utterance_type="ans_pos",
+                    symbol=letter,
+                )
+            )
+            manifest.append(
+                AudioItem(
+                    filename=f"ans_neg_phonetic_{letter}.mp3",
+                    text=f"Non, c'est la lettre qui fait le son « {sound} ».",
+                    category="phonetic",
+                    utterance_type="ans_neg",
+                    symbol=letter,
+                )
+            )
 
     return manifest
 

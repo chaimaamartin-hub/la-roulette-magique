@@ -183,6 +183,54 @@ def draw_subtle_sparkle(
     surface.blit(sparkle_surf, (cx - scx, cy - scy))
 
 
+def compute_star_pop_scale(pop_progress: float) -> float:
+    if not isinstance(pop_progress, (int, float)) or math.isnan(pop_progress):
+        raise ValueError("CRITICAL: pop_progress must be a valid number.")
+    if not (0.0 <= pop_progress <= 1.0):
+        raise ValueError("CRITICAL: pop_progress must be in [0.0, 1.0].")
+    return 1.0 + 0.42 * math.sin(pop_progress * math.pi)
+
+
+def render_rainbow_star_surface(radius: int, rainbow_progress: float) -> tuple[pygame.Surface, int, int]:
+    if radius <= 0:
+        raise ValueError(f"CRITICAL: radius must be positive, got {radius}.")
+    if not isinstance(rainbow_progress, (int, float)) or math.isnan(rainbow_progress):
+        raise ValueError("CRITICAL: rainbow_progress must be a valid number.")
+    if not (0.0 <= rainbow_progress <= 1.0):
+        raise ValueError("CRITICAL: rainbow_progress must be in [0.0, 1.0].")
+
+    from src.card import sample_rainbow_band_color
+
+    gold_comp, scx, scy = get_cached_star_surface(radius, "FILLED")
+    if rainbow_progress >= 1.0:
+        return gold_comp, scx, scy
+
+    target_sz = int(radius * 2.3)
+    pad = int(radius * 0.7) + 6
+    svg_content = get_star_svg_content("FILLED")
+    raw_surf = pygame.image.load(io.BytesIO(svg_content.encode("utf-8")))
+    white_mask = pygame.transform.smoothscale(raw_surf, (target_sz, target_sz))
+    white_mask.fill((255, 255, 255, 0), special_flags=pygame.BLEND_RGBA_MAX)
+
+    phase_offset = rainbow_progress * 12.0
+    band_span_px = max(1.0, target_sz * 0.30)
+
+    rainbow_pat = pygame.Surface((target_sz, target_sz), pygame.SRCALPHA)
+    for u in range(target_sz * 2):
+        band_pos = (u / band_span_px) - phase_offset
+        r, g, b = sample_rainbow_band_color(band_pos, 0.90, 0.96, 0.35)
+        pygame.draw.line(rainbow_pat, (r, g, b, 255), (u, 0), (0, u), 2)
+
+    rainbow_pat.blit(white_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+    result_surf = gold_comp.copy()
+    if rainbow_progress > 0.70:
+        fade_out = 1.0 - (rainbow_progress - 0.70) / 0.30
+        rainbow_pat.set_alpha(int(round(255 * max(0.0, min(1.0, fade_out)))))
+    result_surf.blit(rainbow_pat, (pad, pad))
+    return result_surf, scx, scy
+
+
 def draw_progress_stars(
     surface: pygame.Surface,
     center_pos: tuple[int, int],
@@ -195,6 +243,11 @@ def draw_progress_stars(
     unplayed_color: tuple[int, int, int] = (195, 195, 205),
     star_y_offsets: list[int] | None = None,
     anim_time: float | None = None,
+    active_round_index: int | None = None,
+    latest_pop_progress: float | None = None,
+    latest_rainbow_progress: float | None = None,
+    star_scales: list[float] | None = None,
+    star_rainbow_progresses: list[float | None] | None = None,
 ) -> None:
     if total_rounds <= 0:
         raise ValueError(f"CRITICAL: total_rounds must be positive, got {total_rounds}.")
@@ -221,8 +274,50 @@ def draw_progress_stars(
         else:
             state = "UNPLAYED"
 
-        surf, scx, scy = get_cached_star_surface(radius, state)
-        surface.blit(surf, (x - scx, y - scy))
+        is_latest_filled = (
+            len(round_results) > 0 and i == len(round_results) - 1 and state == "FILLED"
+        )
+        star_rb = (
+            star_rainbow_progresses[i]
+            if (star_rainbow_progresses is not None and i < len(star_rainbow_progresses))
+            else (latest_rainbow_progress if is_latest_filled else None)
+        )
+        if state == "FILLED" and star_rb is not None and 0.0 <= star_rb < 1.0:
+            surf, scx, scy = render_rainbow_star_surface(radius, star_rb)
+        else:
+            surf, scx, scy = get_cached_star_surface(radius, state)
+
+        star_scale = (
+            star_scales[i]
+            if (star_scales is not None and i < len(star_scales))
+            else 1.0
+        )
+
+        # Active round indicator: soft halo + gentle breathing pulse on the current unplayed star
+        if active_round_index is not None and i == active_round_index and state == "UNPLAYED":
+            pulse = 0.5 + 0.5 * math.sin(t * 4.5)
+            star_scale = 1.0 + 0.10 * pulse
+            halo_r = max(4, int(radius * (1.28 + 0.14 * pulse)))
+            halo_surf = pygame.Surface((halo_r * 2 + 4, halo_r * 2 + 4), pygame.SRCALPHA)
+            halo_alpha = int(38 + 26 * pulse)
+            pygame.draw.circle(halo_surf, (255, 205, 40, halo_alpha), (halo_r + 2, halo_r + 2), halo_r)
+            surface.blit(halo_surf, (x - halo_r - 2, y - halo_r - 2))
+
+        # Elastic pop-in scale when the latest star is earned
+        if (
+            is_latest_filled
+            and latest_pop_progress is not None
+            and 0.0 <= latest_pop_progress <= 1.0
+        ):
+            star_scale = compute_star_pop_scale(latest_pop_progress)
+
+        if abs(star_scale - 1.0) > 0.005:
+            new_w = max(1, int(round(surf.get_width() * star_scale)))
+            new_h = max(1, int(round(surf.get_height() * star_scale)))
+            scaled_surf = pygame.transform.smoothscale(surf, (new_w, new_h))
+            surface.blit(scaled_surf, (x - new_w // 2, y - new_h // 2))
+        else:
+            surface.blit(surf, (x - scx, y - scy))
 
         # Sparkling occurs ONLY when the star is golden (filled out)
         if state == "FILLED":

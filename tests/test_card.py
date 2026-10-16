@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.card import Card, ease_out_cubic
+from src.card import Card, RAINBOW_12_HUES, ease_out_cubic, sample_rainbow_band_color
 
 
 def test_ease_out_cubic_bounds() -> None:
@@ -280,6 +280,99 @@ def test_card_correct_celebration_pastel_animation() -> None:
     assert (bg_pixel_idle.r, bg_pixel_idle.g, bg_pixel_idle.b) != (0, 0, 0)
 
 
+def test_diagonal_rainbow_bands_happy_path() -> None:
+    assert len(RAINBOW_12_HUES) == 12
+
+    # Different band positions produce distinct rainbow colors
+    col_band_0 = sample_rainbow_band_color(0.1, 0.90, 0.95, 0.35)
+    col_band_4 = sample_rainbow_band_color(4.1, 0.90, 0.95, 0.35)
+    assert col_band_0 != col_band_4
+
+    # Feathered zone smoothly interpolates between band 0 and band 1
+    col_start = sample_rainbow_band_color(0.5, 0.90, 0.95, 0.35)
+    col_blend = sample_rainbow_band_color(0.85, 0.90, 0.95, 0.35)
+    col_next = sample_rainbow_band_color(1.1, 0.90, 0.95, 0.35)
+    assert col_blend != col_start
+    assert col_blend != col_next
+
+    # Render card with diagonal bands and verify multiple distinct diagonal bands appear on background
+    target_rect = pygame.Rect(100, 100, 210, 290)
+    card = Card(symbol="A", index=0, target_rect=target_rect, screen_width=800)
+    card.update(1.0)
+    card.trigger_rainbow()
+    card.update(0.2)
+
+    surf = pygame.Surface((800, 600))
+    surf.fill((255, 255, 255))
+    font = pygame.font.SysFont("segoeui", 90, bold=True)
+    card.render(surf, font)
+
+    # Sample top-left interior and bottom-right interior (different diagonal bands)
+    px_tl = surf.get_at((target_rect.x + 30, target_rect.y + 30))
+    px_br = surf.get_at((target_rect.right - 30, target_rect.bottom - 30))
+    assert (px_tl.r, px_tl.g, px_tl.b) != (px_br.r, px_br.g, px_br.b)
+    # 10% opacity over white ensures background channels remain >= 220 (light tint)
+    assert min(px_tl.r, px_tl.g, px_tl.b) >= 220
 
 
+def test_sample_rainbow_band_color_invalid_params_failure_path() -> None:
+    with pytest.raises(ValueError, match="CRITICAL: band_pos"):
+        sample_rainbow_band_color(float("nan"), 0.9, 0.9, 0.35)
+    with pytest.raises(ValueError, match="CRITICAL: saturation and value"):
+        sample_rainbow_band_color(1.0, 1.5, 0.9, 0.35)
+    with pytest.raises(ValueError, match="CRITICAL: feather"):
+        sample_rainbow_band_color(1.0, 0.9, 0.9, 1.0)
+
+
+def test_render_rainbow_card_invalid_rect_failure_path() -> None:
+    target_rect = pygame.Rect(100, 100, 200, 280)
+    card = Card(symbol="Z", index=0, target_rect=target_rect, screen_width=800)
+    surf = pygame.Surface((400, 400))
+    text_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+
+    with pytest.raises(ValueError, match="CRITICAL: draw_rect dimensions"):
+        card._render_rainbow_card(surf, pygame.Rect(10, 10, 0, 100), 12, text_surf, (10, 10))
+
+
+def test_card_shake_and_smooth_hover_happy_path() -> None:
+    from src.card import compute_shake_offset
+
+    assert compute_shake_offset(0.05, 0.4) != 0
+    assert compute_shake_offset(0.4, 0.4) == 0
+
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="S", index=0, target_rect=target_rect, screen_width=800)
+    card.update(1.0)
+    surf = pygame.Surface((800, 600))
+    font = pygame.font.SysFont("segoeui", 32)
+
+    card.render(surf, font, mouse_pos=(150, 150))
+    first_prog = card.hover_progress
+    assert 0.0 < first_prog < 1.0
+    card.render(surf, font, mouse_pos=(150, 150))
+    assert card.hover_progress > first_prog
+
+
+def test_compute_shake_offset_failure_paths() -> None:
+    from src.card import compute_shake_offset
+
+    with pytest.raises(ValueError, match="CRITICAL: duration must be positive"):
+        compute_shake_offset(0.1, 0.0)
+    with pytest.raises(ValueError, match="CRITICAL: state_time must be non-negative"):
+        compute_shake_offset(-0.1, 0.4)
+
+
+def test_card_no_hover_while_flying_in() -> None:
+    target_rect = pygame.Rect(100, 100, 120, 160)
+    card = Card(symbol="A", index=0, target_rect=target_rect, screen_width=800)
+    card.update(0.25)
+    assert card.state == "FLYING_IN"
+
+    curr_rect = card.get_current_rect()
+    surf = pygame.Surface((800, 600))
+    font = pygame.font.SysFont("segoeui", 32)
+
+    # Hovering directly over card while FLYING_IN must NOT increase hover_progress or tint yellow
+    card.render(surf, font, mouse_pos=curr_rect.center)
+    assert card.hover_progress == 0.0
 

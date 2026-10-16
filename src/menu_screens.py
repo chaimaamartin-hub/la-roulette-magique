@@ -1,9 +1,11 @@
+import math
 import time
 from typing import Literal
 import pygame
 
 from src.animal_manager import AnimalManager
 from src.audio_manager import AudioManager
+from src.card import sample_rainbow_band_color
 from src.config import (
     ALL_LOWERCASE,
     ALL_NUMBERS,
@@ -16,6 +18,42 @@ from src.font_manager import FontManager
 from src.ui_elements import UICheckbox, UIIconButton, draw_progress_stars
 
 ScreenAction = Literal["MENU", "PLAY", "CONFIG", "SCORE", "QUIT"]
+
+
+def render_title_shimmer(title_mask: pygame.Surface, anim_t: float) -> pygame.Surface:
+    if not isinstance(anim_t, (int, float)) or math.isnan(anim_t):
+        raise ValueError("CRITICAL: anim_t must be a valid number.")
+    w, h = title_mask.get_size()
+    if w <= 0 or h <= 0:
+        raise ValueError("CRITICAL: title_mask dimensions must be positive.")
+
+    shimmer_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    shimmer_surf.fill((20, 20, 25, 255))
+
+    # Periodic diagonal 12-color rainbow wave gliding across the title
+    cycle = 4.5
+    prog = (anim_t % cycle) / cycle
+    sweep_span = w + h + 280
+    center_u = prog * (sweep_span + 280) - 140
+    band_w = max(24.0, h * 0.45)
+
+    u_start = max(0, int(center_u - 160))
+    u_end = min(w + h, int(center_u + 160))
+    for u in range(u_start, u_end):
+        dist = abs(u - center_u) / 160.0
+        if dist < 1.0:
+            blend = 0.5 * (1.0 + math.cos(dist * math.pi))
+            r, g, b = sample_rainbow_band_color((u / band_w) - anim_t * 2.5, 0.85, 0.92, 0.35)
+            col = (
+                int(round(20 + (r - 20) * blend)),
+                int(round(20 + (g - 20) * blend)),
+                int(round(25 + (b - 25) * blend)),
+                255,
+            )
+            pygame.draw.line(shimmer_surf, col, (u, 0), (0, u), 2)
+
+    shimmer_surf.blit(title_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    return shimmer_surf
 
 
 class MainMenuScreen:
@@ -77,20 +115,21 @@ class MainMenuScreen:
     def render(self, surface: pygame.Surface, fm: FontManager, mouse_pos: tuple[int, int]) -> None:
         surface.fill((255, 255, 255))
 
-        # Title: LES CARTES MAGIQUES with 2x supersampled anti-aliasing
+        # Title: LES CARTES MAGIQUES with 2x supersampled anti-aliasing + diagonal rainbow shimmer
         if self._cached_title_surf is None or self._cached_title_scale != self.scale:
             base_sz = max(44, int(77 * self.scale))
             title_font_2x = fm.get_title_font(base_sz * 2)
-            raw_title = title_font_2x.render("LES CARTES MAGIQUES", True, (20, 20, 25))
+            raw_title = title_font_2x.render("LES CARTES MAGIQUES", True, (255, 255, 255))
             target_w = max(1, raw_title.get_width() // 2)
             target_h = max(1, raw_title.get_height() // 2)
             self._cached_title_surf = pygame.transform.smoothscale(raw_title, (target_w, target_h))
             self._cached_title_scale = self.scale
 
-        title_rect = self._cached_title_surf.get_rect(
+        shimmer_title = render_title_shimmer(self._cached_title_surf, time.time())
+        title_rect = shimmer_title.get_rect(
             center=(self.w // 2, self.h // 2 - int(160 * self.scale))
         )
-        surface.blit(self._cached_title_surf, title_rect)
+        surface.blit(shimmer_title, title_rect)
 
         self.btn_play.render(surface, mouse_pos)
         self.btn_config.render(surface, mouse_pos)
@@ -188,11 +227,14 @@ class ConfigScreen:
 
             for box in self.checkboxes:
                 if box.is_clicked(pos):
-                    # Enforce minimum active symbols
-                    currently_checked = [b.label for b in self.checkboxes if b.checked]
-                    if box.checked and len(currently_checked) <= MIN_SELECTED_SYMBOLS:
-                        self.show_error(f"Choisis au moins {MIN_SELECTED_SYMBOLS} lettres ou chiffres !")
-                        return None
+                    # Enforce minimum active distinct case-insensitive symbols
+                    if box.checked:
+                        remaining_distinct = {
+                            b.label.upper() for b in self.checkboxes if b.checked and b is not box
+                        }
+                        if len(remaining_distinct) < MIN_SELECTED_SYMBOLS:
+                            self.show_error(f"Choisis au moins {MIN_SELECTED_SYMBOLS} lettres ou chiffres !")
+                            return None
 
                     box.toggle()
                     # Autosave immediately

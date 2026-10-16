@@ -14,19 +14,27 @@ from scripts.generate_all_audio import (
 
 def test_build_audio_manifest_count_and_structure() -> None:
     manifest = build_audio_manifest()
-    # 26 letters * 3 = 78, 20 numbers * 3 = 60 => total 138
-    assert len(manifest) == 138
+    # 26 letters * 3 = 78, 20 numbers * 3 = 60, 23 phonetics * 3 = 69 => total 207
+    assert len(manifest) == 207
 
     letters = [item for item in manifest if item.category == "letter"]
     numbers = [item for item in manifest if item.category == "number"]
+    phonetics = [item for item in manifest if item.category == "phonetic"]
     assert len(letters) == 78
     assert len(numbers) == 60
+    assert len(phonetics) == 69
 
     # Verify first and last items
     assert letters[0].filename == "q_letter_A.mp3"
     assert letters[0].text == "Où est la lettre A ?"
     assert numbers[-1].filename == "ans_neg_number_20.mp3"
     assert numbers[-1].text == "Non, c'est le chiffre 20."
+    assert phonetics[0].filename == "q_phonetic_A.mp3"
+    assert phonetics[0].text == "Quelle lettre fait le son « a » ?"
+
+    # Without phonetics
+    manifest_no_phon = build_audio_manifest(include_phonetics=False)
+    assert len(manifest_no_phon) == 138
 
 
 def test_get_style_prompt_happy_paths() -> None:

@@ -127,3 +127,78 @@ def test_draw_subtle_sparkle_boundaries() -> None:
     draw_subtle_sparkle(surf, (50, 50), 20.0, progress=1.5)
     # Midpoint peak sparkle
     draw_subtle_sparkle(surf, (50, 50), 20.0, progress=0.5)
+
+
+def test_star_pop_scale_and_active_indicator_happy_path() -> None:
+    from src.star_renderer import compute_star_pop_scale
+
+    assert compute_star_pop_scale(0.0) == pytest.approx(1.0)
+    assert compute_star_pop_scale(0.5) > 1.35
+    assert compute_star_pop_scale(1.0) == pytest.approx(1.0)
+
+    surf = pygame.Surface((600, 150))
+    surf.fill((255, 255, 255))
+    draw_progress_stars(
+        surface=surf,
+        center_pos=(300, 75),
+        round_results=[True, False, True],
+        total_rounds=10,
+        radius=18,
+        spacing=48,
+        anim_time=0.5,
+        active_round_index=3,
+        latest_pop_progress=0.5,
+    )
+
+
+def test_star_pop_scale_failure_paths() -> None:
+    from src.star_renderer import compute_star_pop_scale
+
+    with pytest.raises(ValueError, match="CRITICAL: pop_progress must be a valid number"):
+        compute_star_pop_scale(float("nan"))
+    with pytest.raises(ValueError, match="CRITICAL: pop_progress must be in"):
+        compute_star_pop_scale(-0.1)
+    with pytest.raises(ValueError, match="CRITICAL: pop_progress must be in"):
+        compute_star_pop_scale(1.2)
+
+
+def test_render_rainbow_star_surface_happy_and_failure_paths() -> None:
+    from src.star_renderer import render_rainbow_star_surface
+
+    # Happy path: mid-rainbow star differs from final golden star at 1.0
+    rainbow_surf, rcx, rcy = render_rainbow_star_surface(18, 0.3)
+    gold_surf, gcx, gcy = render_rainbow_star_surface(18, 1.0)
+    assert rainbow_surf.get_size() == gold_surf.get_size()
+    assert (rcx, rcy) == (gcx, gcy)
+    assert rainbow_surf.get_at((rcx, rcy)) != gold_surf.get_at((gcx, gcy))
+
+    # Failure path 1: non-positive radius
+    with pytest.raises(ValueError, match="CRITICAL: radius must be positive"):
+        render_rainbow_star_surface(0, 0.5)
+
+    # Failure path 2: invalid rainbow_progress
+    with pytest.raises(ValueError, match="CRITICAL: rainbow_progress must be in"):
+        render_rainbow_star_surface(18, 1.5)
+    with pytest.raises(ValueError, match="CRITICAL: rainbow_progress must be a valid number"):
+        render_rainbow_star_surface(18, float("nan"))
+
+
+def test_draw_progress_stars_per_star_scales_and_rainbow_wave() -> None:
+    surf = pygame.Surface((600, 150))
+    surf.fill((255, 255, 255))
+    results = [True, True, False, True]
+    scales = [1.15, 1.08, 1.0, 1.12]
+    rainbows: list[float | None] = [0.2, 0.5, None, 0.8]
+
+    draw_progress_stars(
+        surface=surf,
+        center_pos=(300, 75),
+        round_results=results,
+        total_rounds=4,
+        radius=18,
+        spacing=48,
+        anim_time=0.4,
+        star_scales=scales,
+        star_rainbow_progresses=rainbows,
+    )
+

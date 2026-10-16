@@ -61,7 +61,8 @@ class GameSession:
             raise ValueError(f"CRITICAL: round_num must be 1..{TOTAL_ROUNDS}, got {round_num}.")
         count = get_symbol_count_for_round(round_num)
 
-        available_targets = [s for s in self.symbol_pool if s != previous_target]
+        prev_upper = previous_target.upper() if previous_target is not None else None
+        available_targets = [s for s in self.symbol_pool if s.upper() != prev_upper]
         if not available_targets:
             raise ValueError("CRITICAL: No available targets after excluding previous target.")
 
@@ -86,16 +87,28 @@ class GameSession:
             target = random.choice(available_targets)
             prompt_mode = "NAME"
 
-        remaining = [s for s in self.symbol_pool if s != target]
+        # Group distractors case-insensitively so e.g. 'A' and 'a' never appear together
+        by_upper: dict[str, list[str]] = {}
+        for s in self.symbol_pool:
+            if s.upper() != target.upper():
+                by_upper.setdefault(s.upper(), []).append(s)
 
-        # Enforce phonetic collision rules: C, K, Q can never appear together
+        # Enforce phonetic collision rules: C, K, Q can never appear together in PHONETIC mode
         if prompt_mode == "PHONETIC" and target in K_SOUND_LETTERS:
-            remaining = [s for s in remaining if s not in K_SOUND_LETTERS]
+            non_k_groups = {k: v for k, v in by_upper.items() if k not in K_SOUND_LETTERS}
+            if len(non_k_groups) >= count - 1:
+                by_upper = non_k_groups
+            elif len(by_upper) >= count - 1 and len(non_k_groups) > 0:
+                # Later rounds (4-5 cards) with few non-K symbols fall back to letter name
+                prompt_mode = "NAME"
+            else:
+                by_upper = non_k_groups
 
-        if len(remaining) < count - 1:
+        if len(by_upper) < count - 1:
             raise ValueError("CRITICAL: Not enough distractors in pool satisfying phonetic constraints.")
 
-        distractors = random.sample(remaining, count - 1)
+        chosen_keys = random.sample(list(by_upper.keys()), count - 1)
+        distractors = [random.choice(by_upper[k]) for k in chosen_keys]
         symbols = distractors + [target]
         random.shuffle(symbols)
 
@@ -119,6 +132,8 @@ class GameSession:
             self.current_round.is_solved = True
             if self.current_round.attempts == 0 and self.current_round.first_attempt_success:
                 self.score += 1
+            if len(self.round_results) < self.current_round_num:
+                self.round_results.append(self.current_round.first_attempt_success)
             return True
 
         self.current_round.attempts += 1
@@ -129,7 +144,8 @@ class GameSession:
         if not self.current_round.is_solved:
             raise RuntimeError("CRITICAL: Cannot advance round before target is solved.")
 
-        self.round_results.append(self.current_round.first_attempt_success)
+        if len(self.round_results) < self.current_round_num:
+            self.round_results.append(self.current_round.first_attempt_success)
 
         if self.current_round_num >= TOTAL_ROUNDS:
             self.is_game_over = True

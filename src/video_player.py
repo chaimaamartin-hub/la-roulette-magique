@@ -28,7 +28,7 @@ def find_ffmpeg_executable() -> Path:
     raise FileNotFoundError("CRITICAL: ffmpeg executable is required for video playback but was not found.")
 
 
-from src.wmf_reader import WMFVideoReader, _COLOR_LEVEL_TABLE
+from src.wmf_reader import WMFVideoReader, _COLOR_LEVEL_TABLE, init_media_foundation
 
 _DIMENSIONS_CACHE: dict[Path, tuple[int, int]] = {}
 
@@ -113,6 +113,8 @@ class AnimalVideoPlayer:
                     self.close()
                     raise RuntimeError(f"CRITICAL: Failed to decode initial video frame from {self.video_path}")
                 first_frame = pygame.transform.smoothscale(decoded, (self.width, self.height))
+                # Intentional second pass of _COLOR_LEVEL_TABLE after smoothscale: clamps near-white
+                # edge/interpolation pixels to pure (255, 255, 255) so no border is visible against the white UI.
                 first_frame.get_buffer().write(bytes(first_frame.get_buffer()).translate(_COLOR_LEVEL_TABLE))
             self.current_surface: pygame.Surface = first_frame
             self._reader_thread: threading.Thread = threading.Thread(target=self._wmf_worker, daemon=True)
@@ -122,21 +124,28 @@ class AnimalVideoPlayer:
             self._init_ffmpeg_fallback(initial_surface)
 
     def _wmf_worker(self) -> None:
-        while not self._stop_event.is_set():
-            if self.wmf_reader is None:
-                break
-            raw_surf = self.wmf_reader.read_frame_surface()
-            if raw_surf is None:
-                self._eof = True
-                break
-            scaled = pygame.transform.smoothscale(raw_surf, (self.width, self.height))
-            scaled.get_buffer().write(bytes(scaled.get_buffer()).translate(_COLOR_LEVEL_TABLE))
+        init_media_foundation()
+        try:
             while not self._stop_event.is_set():
-                try:
-                    self._frame_queue.put(scaled, timeout=0.05)
+                if self.wmf_reader is None:
                     break
-                except queue.Full:
-                    continue
+                raw_surf = self.wmf_reader.read_frame_surface()
+                if raw_surf is None:
+                    # Intentional: video plays once and stops on the final frame (never loops).
+                    self._eof = True
+                    break
+                scaled = pygame.transform.smoothscale(raw_surf, (self.width, self.height))
+                # Intentional second pass after scaling to keep background seamless with pure white canvas.
+                scaled.get_buffer().write(bytes(scaled.get_buffer()).translate(_COLOR_LEVEL_TABLE))
+                while not self._stop_event.is_set():
+                    try:
+                        self._frame_queue.put(scaled, timeout=0.05)
+                        break
+                    except queue.Full:
+                        continue
+        except Exception:
+            self._eof = True
+
 
     def _init_ffmpeg_fallback(self, initial_surface: pygame.Surface | None) -> None:
         self.frame_bytes: int = self.width * self.height * 3
@@ -166,7 +175,25 @@ class AnimalVideoPlayer:
             if len(raw) != self.frame_bytes:
                 self.close()
                 raise RuntimeError(f"CRITICAL: Failed to decode initial frame from {self.video_path}")
-            self.current_surface = pygame.image.frombuffer(raw, (self.width, self.height), "RGB")
+            self.current_surface = pygame.image.frombuffer(raw, (self.width, self.height), "RGB").copy()
+        self._reader_thread = threading.Thread(target=self._ffmpeg_worker, daemon=True)
+        self._reader_thread.start()
+
+    def _ffmpeg_worker(self) -> None:
+        while not self._stop_event.is_set():
+            if self.process is None or self.process.stdout is None:
+                break
+            raw = self.process.stdout.read(self.frame_bytes)
+            if len(raw) != self.frame_bytes:
+                self._eof = True
+                break
+            surf = pygame.image.frombuffer(raw, (self.width, self.height), "RGB").copy()
+            while not self._stop_event.is_set():
+                try:
+                    self._frame_queue.put(surf, timeout=0.05)
+                    break
+                except queue.Full:
+                    continue
 
     def update(self, dt: float) -> None:
         if self.is_finished:
@@ -184,6 +211,34 @@ class AnimalVideoPlayer:
 
     def get_current_frame(self) -> pygame.Surface:
         return self.current_surface
+
+    def restart(self) -> None:
+        self.close()
+        if hasattr(self, "_reader_thread") and self._reader_thread.is_alive():
+            self._reader_thread.join(timeout=0.5)
+
+        self._stop_event = threading.Event()
+        self._eof = False
+        self.is_finished = False
+        self.elapsed = 0.0
+
+        while not self._frame_queue.empty():
+            try:
+                self._frame_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        if sys.platform == "win32":
+            self.wmf_reader = WMFVideoReader(self.video_path)
+            decoded = self.wmf_reader.read_frame_surface()
+            if decoded is not None:
+                first_frame = pygame.transform.smoothscale(decoded, (self.width, self.height))
+                first_frame.get_buffer().write(bytes(first_frame.get_buffer()).translate(_COLOR_LEVEL_TABLE))
+                self.current_surface = first_frame
+            self._reader_thread = threading.Thread(target=self._wmf_worker, daemon=True)
+            self._reader_thread.start()
+        else:
+            self._init_ffmpeg_fallback(initial_surface=None)
 
     def close(self) -> None:
         if hasattr(self, "_stop_event"):
